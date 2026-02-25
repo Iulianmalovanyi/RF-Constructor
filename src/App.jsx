@@ -5,6 +5,7 @@ import JsonEditor from './components/JsonEditor.jsx'
 import DocumentPreview from './components/DocumentPreview.jsx'
 import { docxParser } from './utils/docxParser.js'
 import { mongoParser, mongoStringify } from './utils/mongoParser.js'
+import { useSync } from './utils/useSync.js'
 
 const DEBOUNCE_MS = 300
 
@@ -16,6 +17,7 @@ export default function App() {
   const [isLoading, setIsLoading]     = useState(false)
 
   const debounceTimer = useRef(null)
+  const { onEditorMount, onPreviewNodeClick, activeNodeId } = useSync(jsonString)
 
   // ------------------------------------------------------------------
   // Upload flow: file → docxParser → mongoStringify → editor + preview
@@ -102,10 +104,13 @@ export default function App() {
             value={jsonString}
             onChange={handleEditorChange}
             error={parseError}
+            onMount={onEditorMount}
           />
           <DocumentPreview
             doc={parsedDoc}
             error={parseError}
+            onNodeClick={onPreviewNodeClick}
+            activeNodeId={activeNodeId}
           />
         </SplitPane>
       </div>
