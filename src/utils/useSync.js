@@ -4,14 +4,25 @@
  * Bi-directional synchronisation between the Monaco JSON editor and the
  * form preview panel.
  *
+ * activeNodeId shape: { id: string, occurrence: number } | null
+ *
+ * The `occurrence` is the zero-indexed count of how many times that _id
+ * value appeared in the JSON *before* this instance. This makes the key
+ * unique even when structural nodes share the same _id string (e.g. all
+ * tables have _id: "table").
+ *
  * JSON → Preview:
- *   When the cursor moves in the editor, find the nearest _id value above
- *   the cursor line, highlight that element in the preview, and scroll it
- *   into view.
+ *   Monaco cursor position event → findIdAboveLine → { id, occurrence }
+ *   → querySelector([data-node-id][data-occurrence]) → scrollIntoView +
+ *   rf-node-highlight class on the exact matching preview element.
  *
  * Preview → JSON:
- *   When a preview element with a data-node-id is clicked, navigate the
- *   editor to the matching _id line and apply a line decoration highlight.
+ *   Click on a preview element → onNodeClick(id, occurrence) →
+ *   findLineForId(id, occurrence) → editor.revealLineInCenter() +
+ *   deltaDecorations line highlight.
+ *
+ * The fix does NOT modify jsonString in any way — it only reads it.
+ * JSON file uploads remain byte-for-byte identical in the editor.
  */
 
 import { useRef, useState, useEffect } from 'react'
@@ -19,12 +30,13 @@ import { useRef, useState, useEffect } from 'react'
 export function useSync(jsonString) {
   const editorRef      = useRef(null)
   const monacoRef      = useRef(null)
-  const decorationsRef = useRef([])    // holds Monaco decoration IDs for cleanup
+  const decorationsRef = useRef([])    // Monaco decoration IDs for cleanup
   const jsonStringRef  = useRef(jsonString)
+  // activeNodeId: { id: string, occurrence: number } | null
   const [activeNodeId, setActiveNodeId] = useState(null)
 
-  // Keep ref in sync with latest jsonString so the cursor listener
-  // (which closes over this ref, not the state) never reads stale data.
+  // Keep ref in sync so the cursor listener (which closes over this ref,
+  // not the state value) never reads stale data after an upload or edit.
   useEffect(() => {
     jsonStringRef.current = jsonString
   }, [jsonString])
@@ -38,28 +50,28 @@ export function useSync(jsonString) {
     monacoRef.current = monaco
 
     editor.onDidChangeCursorPosition((e) => {
-      const id = findIdAboveLine(jsonStringRef.current, e.position.lineNumber)
-      if (!id) return
+      const result = findIdAboveLine(jsonStringRef.current, e.position.lineNumber)
+      if (!result) return
 
-      setActiveNodeId(id)
+      setActiveNodeId(result)   // { id, occurrence }
 
-      // Scroll matching preview element into view
       try {
-        const selector = `[data-node-id="${CSS.escape(id)}"]`
+        const selector = `[data-node-id="${CSS.escape(result.id)}"][data-occurrence="${result.occurrence}"]`
         const el = document.querySelector(selector)
         if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-      } catch (_) { /* degrade gracefully if CSS.escape not supported */ }
+      } catch (_) { /* degrade gracefully if CSS.escape not available */ }
     })
   }
 
   /**
    * Called by DocumentPreview when a node with a _id is clicked.
-   * Navigates the editor to the matching line and highlights it.
+   * `occurrence` is the zero-indexed occurrence of that _id in the rendered
+   * component tree — passed from `data-occurrence` on the DOM element.
    */
-  const onPreviewNodeClick = (id) => {
-    setActiveNodeId(id)
+  const onPreviewNodeClick = (id, occurrence) => {
+    setActiveNodeId({ id, occurrence })
 
-    const lineNumber = findLineForId(jsonStringRef.current, id)
+    const lineNumber = findLineForId(jsonStringRef.current, id, occurrence)
     if (lineNumber === -1) return
 
     const editor = editorRef.current
@@ -92,35 +104,54 @@ export function useSync(jsonString) {
 
 /**
  * Scan backward from lineNumber (1-based) to find the nearest _id value
- * at or above the cursor. Handles both:
- *   "_id": "someValue"   (strict JSON)
- *   _id: "someValue"     (MongoDB shell format)
+ * at or above the cursor. Returns { id, occurrence } where occurrence is
+ * how many times that same id appeared before the matched line.
  *
- * Skips ObjectId(...) patterns since those are document-level _id values,
- * not component node IDs (they are not quoted strings).
+ * Handles both:
+ *   "_id": "someValue"  (strict JSON)
+ *   _id: "someValue"    (MongoDB shell format)
  *
- * Returns the captured id string, or null if not found.
+ * ObjectId("...") patterns are not captured because they are not quoted
+ * strings matching ([^"]+), so the top-level document _id is safely skipped.
  */
 function findIdAboveLine(jsonString, lineNumber) {
   const lines = jsonString.split('\n').slice(0, lineNumber)
+  const idRe  = /"?_id"?\s*:\s*"([^"]+)"/
+
   for (let i = lines.length - 1; i >= 0; i--) {
-    const m = lines[i].match(/"?_id"?\s*:\s*"([^"]+)"/)
-    if (m) return m[1]
+    const m = lines[i].match(idRe)
+    if (!m) continue
+
+    const id = m[1]
+    // Count how many times this same _id string appeared before line i
+    const escaped  = id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const countRe  = new RegExp(`"?_id"?\\s*:\\s*"${escaped}"`)
+    let occurrence = 0
+    for (let j = 0; j < i; j++) {
+      if (countRe.test(lines[j])) occurrence++
+    }
+    return { id, occurrence }
   }
   return null
 }
 
 /**
- * Find the 1-based line number of the first line containing _id: "id".
- * Returns -1 if not found.
+ * Return the 1-based line number of the Nth (zero-indexed) occurrence of
+ * _id: "id" in the jsonString, or -1 if not found.
+ *
+ * `occurrence` ensures we navigate to the exact JSON block that corresponds
+ * to the clicked or cursor-targeted component — not just the first match.
  */
-function findLineForId(jsonString, id) {
-  // Escape the id value so it is safe to use in a RegExp
+function findLineForId(jsonString, id, occurrence) {
   const escaped = id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const re = new RegExp(`"?_id"?\\s*:\\s*"${escaped}"`)
-  const lines = jsonString.split('\n')
+  const re      = new RegExp(`"?_id"?\\s*:\\s*"${escaped}"`)
+  const lines   = jsonString.split('\n')
+  let count = 0
   for (let i = 0; i < lines.length; i++) {
-    if (re.test(lines[i])) return i + 1   // 1-based line number
+    if (re.test(lines[i])) {
+      if (count === occurrence) return i + 1   // 1-based
+      count++
+    }
   }
   return -1
 }

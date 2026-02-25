@@ -9,21 +9,32 @@
  * original DOCX template as closely as possible.
  *
  * Bi-directional sync support:
- *   - Each component node with a `_id` gets a `data-node-id` attribute so
- *     the editor cursor listener can find it via querySelector.
- *   - Clicking a node with a `_id` calls onNodeClick(id) to navigate the editor.
- *   - The node matching `activeNodeId` receives the `rf-node-highlight` class.
+ *   - Each node with a `_id` gets data-node-id and data-occurrence attributes.
+ *   - `data-occurrence` is the zero-indexed count of how many times that
+ *     _id appeared in the rendered tree before this instance, matching the
+ *     occurrence tracking in useSync.js so each node is uniquely addressable.
+ *   - Clicking a node calls onNodeClick(id, occurrence).
+ *   - The node matching activeNodeId.id + activeNodeId.occurrence gets the
+ *     rf-node-highlight class — exactly one element at a time.
  */
+
+import { useRef } from 'react'
 
 /**
  * Main preview component.
  * Props:
- *   doc: object | null        — parsed MongoDB document JS object
- *   error: string | null      — parse error (preview stays on last good doc)
- *   onNodeClick(id: string)   — called when a node with _id is clicked
- *   activeNodeId: string|null — _id of the currently highlighted node
+ *   doc: object | null                          — parsed MongoDB document
+ *   error: string | null                        — parse error (stays on last good doc)
+ *   onNodeClick(id: string, occ: number): void  — called when a node is clicked
+ *   activeNodeId: { id, occurrence } | null     — currently highlighted node
  */
 export default function DocumentPreview({ doc, error, onNodeClick, activeNodeId }) {
+  // Occurrence counter — reset on every render so it mirrors the tree
+  // traversal order. ComponentNode reads and mutates this synchronously
+  // during the same render pass, giving each node a stable unique index.
+  const occurrenceRef = useRef({})
+  occurrenceRef.current = {}
+
   return (
     <div className="flex flex-col h-full">
       {/* Panel header */}
@@ -60,6 +71,7 @@ export default function DocumentPreview({ doc, error, onNodeClick, activeNodeId 
                 node={node}
                 onNodeClick={onNodeClick}
                 activeNodeId={activeNodeId}
+                occurrenceRef={occurrenceRef}
               />
             ))}
           </div>
@@ -73,16 +85,27 @@ export default function DocumentPreview({ doc, error, onNodeClick, activeNodeId 
 // Recursive component renderer
 // -------------------------------------------------------------------------
 
-function ComponentNode({ node, onNodeClick, activeNodeId }) {
+function ComponentNode({ node, onNodeClick, activeNodeId, occurrenceRef }) {
   if (!node || !node.component) return null
 
   const { component, props = {}, children } = node
 
-  // --- Bi-directional sync ---
-  // Nodes with a _id get a data-node-id attribute, a click handler, and the
-  // rf-node-highlight class when they match the currently active node.
-  const nodeId   = node._id ?? null
-  const isActive = nodeId !== null && nodeId === activeNodeId
+  // --- Occurrence tracking ---
+  // Each node with a _id gets a stable zero-indexed occurrence within this
+  // render pass. This mirrors the findIdAboveLine() counting in useSync.js.
+  const nodeId = node._id ?? null
+  let nodeOccurrence = 0
+  if (nodeId !== null) {
+    nodeOccurrence = occurrenceRef.current[nodeId] ?? 0
+    occurrenceRef.current[nodeId] = nodeOccurrence + 1
+  }
+
+  // --- Highlight check ---
+  // Both id AND occurrence must match — ensures exactly one element highlights.
+  const isActive = nodeId !== null
+    && activeNodeId !== null
+    && activeNodeId.id === nodeId
+    && activeNodeId.occurrence === nodeOccurrence
 
   // Destructure known props — everything else is ignored
   const {
@@ -113,15 +136,17 @@ function ComponentNode({ node, onNodeClick, activeNodeId }) {
   const mergedClassName = [domProps.className, isActive ? 'rf-node-highlight' : '']
     .filter(Boolean).join(' ') || undefined
 
-  // Build sync-related props — only attach to nodes that have a _id
+  // Build sync-related props — only for nodes with a _id
   const syncProps = {}
   if (nodeId) {
-    syncProps['data-node-id'] = nodeId
-    syncProps.onClick = (e) => { e.stopPropagation(); onNodeClick?.(nodeId) }
+    syncProps['data-node-id']   = nodeId
+    syncProps['data-occurrence'] = nodeOccurrence
+    syncProps.onClick = (e) => { e.stopPropagation(); onNodeClick?.(nodeId, nodeOccurrence) }
   }
   if (mergedClassName) syncProps.className = mergedClassName
 
-  // Render children recursively, or fall back to text content
+  // Render children recursively — pass occurrenceRef down so the counter
+  // is shared across the entire tree in traversal order
   const hasChildren = Array.isArray(children) && children.length > 0
   const renderedChildren = hasChildren
     ? children.map((child, i) => (
@@ -130,6 +155,7 @@ function ComponentNode({ node, onNodeClick, activeNodeId }) {
           node={child}
           onNodeClick={onNodeClick}
           activeNodeId={activeNodeId}
+          occurrenceRef={occurrenceRef}
         />
       ))
     : null
@@ -220,7 +246,7 @@ function ComponentNode({ node, onNodeClick, activeNodeId }) {
     case 'input':
       // Use defaultValue/defaultChecked (uncontrolled) so the user can type
       // into the form fields without React managing per-field state.
-      // Attach sync props directly (no domProps wrapper — input is a void element).
+      // Sync props are applied inline (input is a void element, no domProps wrapper).
       if (type === 'checkbox' || type === 'radio') {
         return (
           <input
@@ -232,7 +258,8 @@ function ComponentNode({ node, onNodeClick, activeNodeId }) {
             className={[className ?? '', isActive ? 'rf-node-highlight' : ''].filter(Boolean).join(' ') || undefined}
             style={style}
             data-node-id={nodeId ?? undefined}
-            onClick={nodeId ? (e) => { e.stopPropagation(); onNodeClick?.(nodeId) } : undefined}
+            data-occurrence={nodeId != null ? nodeOccurrence : undefined}
+            onClick={nodeId ? (e) => { e.stopPropagation(); onNodeClick?.(nodeId, nodeOccurrence) } : undefined}
           />
         )
       }
@@ -245,7 +272,8 @@ function ComponentNode({ node, onNodeClick, activeNodeId }) {
           className={[className ?? '', isActive ? 'rf-node-highlight' : ''].filter(Boolean).join(' ') || undefined}
           style={style}
           data-node-id={nodeId ?? undefined}
-          onClick={nodeId ? (e) => { e.stopPropagation(); onNodeClick?.(nodeId) } : undefined}
+          data-occurrence={nodeId != null ? nodeOccurrence : undefined}
+          onClick={nodeId ? (e) => { e.stopPropagation(); onNodeClick?.(nodeId, nodeOccurrence) } : undefined}
         />
       )
 
@@ -258,7 +286,8 @@ function ComponentNode({ node, onNodeClick, activeNodeId }) {
           style={style}
           defaultValue={value ?? ''}
           data-node-id={nodeId ?? undefined}
-          onClick={nodeId ? (e) => { e.stopPropagation(); onNodeClick?.(nodeId) } : undefined}
+          data-occurrence={nodeId != null ? nodeOccurrence : undefined}
+          onClick={nodeId ? (e) => { e.stopPropagation(); onNodeClick?.(nodeId, nodeOccurrence) } : undefined}
         />
       )
 
