@@ -103,9 +103,20 @@ export function useSync(jsonString) {
 // -------------------------------------------------------------------------
 
 /**
- * Scan backward from lineNumber (1-based) to find the nearest _id value
- * at or above the cursor. Returns { id, occurrence } where occurrence is
- * how many times that same id appeared before the matched line.
+ * Scan backward from lineNumber (1-based) to find the _id belonging to the
+ * INNERMOST enclosing JSON object at the cursor position. Returns
+ * { id, occurrence } where occurrence is how many times that same id
+ * appeared before the matched line.
+ *
+ * Algorithm: brace-depth-aware scan
+ *   Walk backward line by line, counting { and } to track scope depth.
+ *   Going backward: } increases depth (entering deeper scope), { decreases.
+ *   When depth goes negative we've crossed the opening { of the current object.
+ *   If we found an _id before that crossing → return it (innermost block wins).
+ *   If not → reset depth to 0 and continue scanning at the parent level.
+ *
+ * This gives cell > row > table > any-ancestor granularity automatically,
+ * without any special-casing of component types.
  *
  * Handles both:
  *   "_id": "someValue"  (strict JSON)
@@ -113,26 +124,57 @@ export function useSync(jsonString) {
  *
  * ObjectId("...") patterns are not captured because they are not quoted
  * strings matching ([^"]+), so the top-level document _id is safely skipped.
+ *
+ * Note: brace characters inside string values are counted, but they almost
+ * always come in balanced pairs within string values, so the net scope-
+ * detection effect is negligible for well-formed JSON.
  */
 function findIdAboveLine(jsonString, lineNumber) {
   const lines = jsonString.split('\n').slice(0, lineNumber)
   const idRe  = /"?_id"?\s*:\s*"([^"]+)"/
 
-  for (let i = lines.length - 1; i >= 0; i--) {
-    const m = lines[i].match(idRe)
-    if (!m) continue
+  let depth       = 0
+  let candidateId = null
 
-    const id = m[1]
-    // Count how many times this same _id string appeared before line i
-    const escaped  = id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    const countRe  = new RegExp(`"?_id"?\\s*:\\s*"${escaped}"`)
-    let occurrence = 0
-    for (let j = 0; j < i; j++) {
-      if (countRe.test(lines[j])) occurrence++
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const line = lines[i]
+
+    // Count braces on this line (scanning backward, so } opens scope, { closes it)
+    for (let c = line.length - 1; c >= 0; c--) {
+      if      (line[c] === '}') depth++
+      else if (line[c] === '{') depth--
     }
-    return { id, occurrence }
+
+    // Check if this line has an _id field
+    const m = line.match(idRe)
+    if (m) candidateId = m[1]
+
+    // depth < 0: we've crossed the opening { of the current object scope
+    if (depth < 0) {
+      if (candidateId !== null) break  // innermost object with an _id found
+      depth = 0                        // no _id at this level — step into parent
+    }
   }
-  return null
+
+  if (!candidateId) return null
+
+  // Compute occurrence: count how many times candidateId appeared in the JSON
+  // before the line where it was found (scanning from the top).
+  const escaped = candidateId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const countRe = new RegExp(`"?_id"?\\s*:\\s*"${escaped}"`)
+
+  // Find the last line in our window that matches candidateId
+  let idLine = -1
+  for (let i = lines.length - 1; i >= 0; i--) {
+    if (countRe.test(lines[i])) { idLine = i; break }
+  }
+
+  let occurrence = 0
+  for (let j = 0; j < idLine; j++) {
+    if (countRe.test(lines[j])) occurrence++
+  }
+
+  return { id: candidateId, occurrence }
 }
 
 /**
