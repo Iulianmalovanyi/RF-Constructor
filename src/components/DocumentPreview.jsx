@@ -16,9 +16,41 @@
  *   - Clicking a node calls onNodeClick(id, occurrence).
  *   - The node matching activeNodeId.id + activeNodeId.occurrence gets the
  *     rf-node-highlight class — exactly one element at a time.
+ *
+ * Occurrence tracking is done via a pre-pass over the doc tree (buildOccurrenceMap)
+ * that assigns a stable { occurrence } to every node with a _id before rendering
+ * begins. This avoids mutation-during-render (which is unsafe in React StrictMode)
+ * and guarantees the same occurrence order as the JSON line scan in useSync.js.
  */
 
-import { useRef } from 'react'
+/**
+ * Walk the form tree in depth-first order and assign a stable occurrence index
+ * to every node that has a `_id`. Returns a WeakMap keyed by node object.
+ *
+ * The traversal order matches the order in which `_id` lines appear in the JSON,
+ * which in turn matches the order ComponentNode renders them — so the occurrence
+ * numbers are consistent between the editor scan and the preview render.
+ */
+function buildOccurrenceMap(nodes) {
+  const map    = new Map()    // node → occurrence number (keyed by object reference)
+  const counts = {}           // id string → how many times seen so far
+
+  function walk(node) {
+    if (!node || !node.component) return
+    if (node._id != null) {
+      const id  = node._id
+      const occ = counts[id] ?? 0
+      counts[id] = occ + 1
+      map.set(node, occ)
+    }
+    if (Array.isArray(node.children)) {
+      node.children.forEach(walk)
+    }
+  }
+
+  if (Array.isArray(nodes)) nodes.forEach(walk)
+  return map
+}
 
 /**
  * Main preview component.
@@ -29,11 +61,11 @@ import { useRef } from 'react'
  *   activeNodeId: { id, occurrence } | null     — currently highlighted node
  */
 export default function DocumentPreview({ doc, error, onNodeClick, activeNodeId }) {
-  // Occurrence counter — reset on every render so it mirrors the tree
-  // traversal order. ComponentNode reads and mutates this synchronously
-  // during the same render pass, giving each node a stable unique index.
-  const occurrenceRef = useRef({})
-  occurrenceRef.current = {}
+  // Build the occurrence map once per doc. This is a pure pre-pass with no
+  // side effects — safe to call during render.
+  const occurrenceMap = doc && Array.isArray(doc.form)
+    ? buildOccurrenceMap(doc.form)
+    : new Map()
 
   return (
     <div className="flex flex-col h-full">
@@ -71,7 +103,7 @@ export default function DocumentPreview({ doc, error, onNodeClick, activeNodeId 
                 node={node}
                 onNodeClick={onNodeClick}
                 activeNodeId={activeNodeId}
-                occurrenceRef={occurrenceRef}
+                occurrenceMap={occurrenceMap}
               />
             ))}
           </div>
@@ -85,20 +117,16 @@ export default function DocumentPreview({ doc, error, onNodeClick, activeNodeId 
 // Recursive component renderer
 // -------------------------------------------------------------------------
 
-function ComponentNode({ node, onNodeClick, activeNodeId, occurrenceRef }) {
+function ComponentNode({ node, onNodeClick, activeNodeId, occurrenceMap }) {
   if (!node || !node.component) return null
 
   const { component, props = {}, children } = node
 
-  // --- Occurrence tracking ---
-  // Each node with a _id gets a stable zero-indexed occurrence within this
-  // render pass. This mirrors the findIdAboveLine() counting in useSync.js.
-  const nodeId = node._id ?? null
-  let nodeOccurrence = 0
-  if (nodeId !== null) {
-    nodeOccurrence = occurrenceRef.current[nodeId] ?? 0
-    occurrenceRef.current[nodeId] = nodeOccurrence + 1
-  }
+  // --- Occurrence lookup ---
+  // Read the pre-computed occurrence for this exact node object.
+  // undefined means this node has no _id.
+  const nodeId         = node._id ?? null
+  const nodeOccurrence = nodeId !== null ? (occurrenceMap.get(node) ?? 0) : 0
 
   // --- Highlight check ---
   // Both id AND occurrence must match — ensures exactly one element highlights.
@@ -139,14 +167,14 @@ function ComponentNode({ node, onNodeClick, activeNodeId, occurrenceRef }) {
   // Build sync-related props — only for nodes with a _id
   const syncProps = {}
   if (nodeId) {
-    syncProps['data-node-id']   = nodeId
+    syncProps['data-node-id']    = nodeId
     syncProps['data-occurrence'] = nodeOccurrence
     syncProps.onClick = (e) => { e.stopPropagation(); onNodeClick?.(nodeId, nodeOccurrence) }
   }
   if (mergedClassName) syncProps.className = mergedClassName
 
-  // Render children recursively — pass occurrenceRef down so the counter
-  // is shared across the entire tree in traversal order
+  // Render children recursively — pass occurrenceMap down so every node
+  // can look up its pre-computed occurrence without mutation
   const hasChildren = Array.isArray(children) && children.length > 0
   const renderedChildren = hasChildren
     ? children.map((child, i) => (
@@ -155,7 +183,7 @@ function ComponentNode({ node, onNodeClick, activeNodeId, occurrenceRef }) {
           node={child}
           onNodeClick={onNodeClick}
           activeNodeId={activeNodeId}
-          occurrenceRef={occurrenceRef}
+          occurrenceMap={occurrenceMap}
         />
       ))
     : null
