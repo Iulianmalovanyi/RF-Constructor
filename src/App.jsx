@@ -41,6 +41,31 @@ export default function App() {
   }, [])
 
   // ------------------------------------------------------------------
+  // JSON upload flow: file → read as text → mongoParser → editor + preview
+  // ------------------------------------------------------------------
+  const handleJsonFile = useCallback(async (file) => {
+    setIsLoading(true)
+    setParseError(null)
+
+    try {
+      const text = await readAsText(file)
+      const result = mongoParser(text)
+      if (result.ok) {
+        setJsonString(text)
+        setParsedDoc(result.value)
+        setFileName(file.name)
+      } else {
+        setParseError(`Invalid JSON: ${result.error}`)
+      }
+    } catch (err) {
+      console.error('JSON load error:', err)
+      setParseError(`Failed to read file: ${err.message}`)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  // ------------------------------------------------------------------
   // Editor change flow: text → debounced mongoParser → preview update
   // ------------------------------------------------------------------
   const handleEditorChange = useCallback((newStr) => {
@@ -67,6 +92,7 @@ export default function App() {
       <Header />
       <FileUpload
         onFile={handleFile}
+        onJsonFile={handleJsonFile}
         fileName={fileName}
         isLoading={isLoading}
       />
@@ -130,5 +156,17 @@ function readAsArrayBuffer(file) {
     reader.onload = (e) => resolve(e.target.result)
     reader.onerror = () => reject(new Error('Failed to read file'))
     reader.readAsArrayBuffer(file)
+  })
+}
+
+// ------------------------------------------------------------------
+// Helper: read File as UTF-8 text
+// ------------------------------------------------------------------
+function readAsText(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = (e) => resolve(e.target.result)
+    reader.onerror = () => reject(new Error('Failed to read file'))
+    reader.readAsText(file, 'utf-8')
   })
 }

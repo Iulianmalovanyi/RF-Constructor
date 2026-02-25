@@ -4,12 +4,14 @@ import { useRef, useState, useCallback } from 'react'
  * Persistent upload bar — always visible at the top of the page.
  *
  * Props:
- *   onFile(file: File)  — called when a valid .docx file is selected
- *   fileName: string    — currently loaded file name ('' if none)
- *   isLoading: boolean  — show spinner while parsing
+ *   onFile(file: File)      — called when a valid .docx file is selected
+ *   onJsonFile(file: File)  — called when a valid .json file is selected
+ *   fileName: string        — currently loaded file name ('' if none)
+ *   isLoading: boolean      — show spinner while parsing
  */
-export default function FileUpload({ onFile, fileName, isLoading }) {
-  const inputRef = useRef(null)
+export default function FileUpload({ onFile, onJsonFile, fileName, isLoading }) {
+  const inputRef     = useRef(null)
+  const jsonInputRef = useRef(null)
   const [isDragOver, setIsDragOver] = useState(false)
 
   const handleFile = useCallback((file) => {
@@ -20,6 +22,15 @@ export default function FileUpload({ onFile, fileName, isLoading }) {
     }
     onFile(file)
   }, [onFile])
+
+  const handleJsonFileSelect = useCallback((file) => {
+    if (!file) return
+    if (!file.name.toLowerCase().endsWith('.json')) {
+      alert('Please upload a .json file')
+      return
+    }
+    onJsonFile(file)
+  }, [onJsonFile])
 
   const handleInputChange = (e) => {
     handleFile(e.target.files?.[0])
@@ -51,7 +62,7 @@ export default function FileUpload({ onFile, fileName, isLoading }) {
         isDragOver ? 'bg-blue-50 border-brand-blue' : '',
       ].join(' ')}
     >
-      {/* Hidden file input */}
+      {/* Hidden file input — DOCX */}
       <input
         ref={inputRef}
         type="file"
@@ -60,7 +71,19 @@ export default function FileUpload({ onFile, fileName, isLoading }) {
         onChange={handleInputChange}
       />
 
-      {/* Upload button */}
+      {/* Hidden file input — JSON */}
+      <input
+        ref={jsonInputRef}
+        type="file"
+        accept=".json"
+        className="hidden"
+        onChange={(e) => {
+          handleJsonFileSelect(e.target.files?.[0])
+          e.target.value = ''
+        }}
+      />
+
+      {/* Upload DOCX button */}
       <button
         onClick={() => inputRef.current?.click()}
         disabled={isLoading}
@@ -83,6 +106,22 @@ export default function FileUpload({ onFile, fileName, isLoading }) {
             <span>Upload DOCX</span>
           </>
         )}
+      </button>
+
+      {/* Upload JSON button */}
+      <button
+        onClick={() => jsonInputRef.current?.click()}
+        disabled={isLoading}
+        className={[
+          'flex items-center gap-2 px-4 py-2 rounded-pill text-sm font-medium text-white',
+          'bg-brand-green-dark hover:bg-green-900 active:bg-green-950',
+          'transition-colors duration-150 select-none',
+          'focus:outline-none focus:ring-2 focus:ring-brand-yellow focus:ring-offset-1',
+          isLoading ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer',
+        ].join(' ')}
+      >
+        <JsonIcon />
+        <span>Upload JSON</span>
       </button>
 
       {/* Current file name */}
@@ -121,6 +160,14 @@ function DocIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" className="text-brand-blue flex-none" aria-hidden="true">
       <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+    </svg>
+  )
+}
+
+function JsonIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+      <path fillRule="evenodd" d="M3 4a1 1 0 011-1h3a1 1 0 010 2H5v10h2a1 1 0 010 2H4a1 1 0 01-1-1V4zm10-1a1 1 0 000 2h2v10h-2a1 1 0 000 2h3a1 1 0 001-1V4a1 1 0 00-1-1h-3zM8 9a1 1 0 012 0v2a1 1 0 01-2 0V9z" clipRule="evenodd" />
     </svg>
   )
 }
