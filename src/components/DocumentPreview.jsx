@@ -7,15 +7,23 @@
  *
  * The brand design system is NOT applied here. The preview must match the
  * original DOCX template as closely as possible.
+ *
+ * Bi-directional sync support:
+ *   - Each component node with a `_id` gets a `data-node-id` attribute so
+ *     the editor cursor listener can find it via querySelector.
+ *   - Clicking a node with a `_id` calls onNodeClick(id) to navigate the editor.
+ *   - The node matching `activeNodeId` receives the `rf-node-highlight` class.
  */
 
 /**
  * Main preview component.
  * Props:
- *   doc: object | null   — parsed MongoDB document JS object
- *   error: string | null — parse error (preview stays on last good doc)
+ *   doc: object | null        — parsed MongoDB document JS object
+ *   error: string | null      — parse error (preview stays on last good doc)
+ *   onNodeClick(id: string)   — called when a node with _id is clicked
+ *   activeNodeId: string|null — _id of the currently highlighted node
  */
-export default function DocumentPreview({ doc, error }) {
+export default function DocumentPreview({ doc, error, onNodeClick, activeNodeId }) {
   return (
     <div className="flex flex-col h-full">
       {/* Panel header */}
@@ -47,7 +55,12 @@ export default function DocumentPreview({ doc, error }) {
             style={{ fontFamily: 'Arial, sans-serif', fontSize: '14px' }}
           >
             {Array.isArray(doc.form) && doc.form.map((node, i) => (
-              <ComponentNode key={i} node={node} />
+              <ComponentNode
+                key={i}
+                node={node}
+                onNodeClick={onNodeClick}
+                activeNodeId={activeNodeId}
+              />
             ))}
           </div>
         )}
@@ -60,10 +73,16 @@ export default function DocumentPreview({ doc, error }) {
 // Recursive component renderer
 // -------------------------------------------------------------------------
 
-function ComponentNode({ node }) {
+function ComponentNode({ node, onNodeClick, activeNodeId }) {
   if (!node || !node.component) return null
 
   const { component, props = {}, children } = node
+
+  // --- Bi-directional sync ---
+  // Nodes with a _id get a data-node-id attribute, a click handler, and the
+  // rf-node-highlight class when they match the currently active node.
+  const nodeId   = node._id ?? null
+  const isActive = nodeId !== null && nodeId === activeNodeId
 
   // Destructure known props — everything else is ignored
   const {
@@ -90,10 +109,29 @@ function ComponentNode({ node }) {
   if (style)     domProps.style = style
   if (className) domProps.className = className
 
+  // Merge highlight class with any existing className from JSON
+  const mergedClassName = [domProps.className, isActive ? 'rf-node-highlight' : '']
+    .filter(Boolean).join(' ') || undefined
+
+  // Build sync-related props — only attach to nodes that have a _id
+  const syncProps = {}
+  if (nodeId) {
+    syncProps['data-node-id'] = nodeId
+    syncProps.onClick = (e) => { e.stopPropagation(); onNodeClick?.(nodeId) }
+  }
+  if (mergedClassName) syncProps.className = mergedClassName
+
   // Render children recursively, or fall back to text content
   const hasChildren = Array.isArray(children) && children.length > 0
   const renderedChildren = hasChildren
-    ? children.map((child, i) => <ComponentNode key={i} node={child} />)
+    ? children.map((child, i) => (
+        <ComponentNode
+          key={i}
+          node={child}
+          onNodeClick={onNodeClick}
+          activeNodeId={activeNodeId}
+        />
+      ))
     : null
 
   // Rule: if children exist, render them (text prop is secondary)
@@ -102,31 +140,32 @@ function ComponentNode({ node }) {
 
   switch (component) {
     case 'div':
-      return <div {...domProps}>{content}</div>
+      return <div {...domProps} {...syncProps}>{content}</div>
 
     case 'span':
-      return <span {...domProps}>{content}</span>
+      return <span {...domProps} {...syncProps}>{content}</span>
 
     case 'text':
       // Rare component type — render as inline span
-      return <span {...domProps}>{content}</span>
+      return <span {...domProps} {...syncProps}>{content}</span>
 
     case 'table':
-      return <table {...domProps}>{content}</table>
+      return <table {...domProps} {...syncProps}>{content}</table>
 
     case 'thead':
-      return <thead {...domProps}>{content}</thead>
+      return <thead {...domProps} {...syncProps}>{content}</thead>
 
     case 'tbody':
-      return <tbody {...domProps}>{content}</tbody>
+      return <tbody {...domProps} {...syncProps}>{content}</tbody>
 
     case 'tr':
-      return <tr {...domProps}>{content}</tr>
+      return <tr {...domProps} {...syncProps}>{content}</tr>
 
     case 'td':
       return (
         <td
           {...domProps}
+          {...syncProps}
           colSpan={colSpan ?? colspan}
           rowSpan={rowSpan ?? rowspan}
         >
@@ -138,6 +177,7 @@ function ComponentNode({ node }) {
       return (
         <th
           {...domProps}
+          {...syncProps}
           colSpan={colSpan ?? colspan}
           rowSpan={rowSpan ?? rowspan}
         >
@@ -146,19 +186,19 @@ function ComponentNode({ node }) {
       )
 
     case 'h1':
-      return <h1 {...domProps}>{content}</h1>
+      return <h1 {...domProps} {...syncProps}>{content}</h1>
 
     case 'h4':
-      return <h4 {...domProps}>{content}</h4>
+      return <h4 {...domProps} {...syncProps}>{content}</h4>
 
     case 'ul':
-      return <ul {...domProps}>{content}</ul>
+      return <ul {...domProps} {...syncProps}>{content}</ul>
 
     case 'ol':
-      return <ol {...domProps}>{content}</ol>
+      return <ol {...domProps} {...syncProps}>{content}</ol>
 
     case 'li':
-      return <li {...domProps}>{content}</li>
+      return <li {...domProps} {...syncProps}>{content}</li>
 
     case 'a':
       return (
@@ -167,6 +207,7 @@ function ComponentNode({ node }) {
           target={target}
           rel="noreferrer"
           {...domProps}
+          {...syncProps}
         >
           {text ?? content}
         </a>
@@ -174,11 +215,12 @@ function ComponentNode({ node }) {
 
     case 'img':
     case 'image':
-      return <img src={src} alt="" {...domProps} />
+      return <img src={src} alt="" {...domProps} {...syncProps} />
 
     case 'input':
       // Use defaultValue/defaultChecked (uncontrolled) so the user can type
       // into the form fields without React managing per-field state.
+      // Attach sync props directly (no domProps wrapper — input is a void element).
       if (type === 'checkbox' || type === 'radio') {
         return (
           <input
@@ -187,8 +229,10 @@ function ComponentNode({ node }) {
             name={name}
             defaultValue={value}
             defaultChecked={checked}
-            className={className ?? ''}
+            className={[className ?? '', isActive ? 'rf-node-highlight' : ''].filter(Boolean).join(' ') || undefined}
             style={style}
+            data-node-id={nodeId ?? undefined}
+            onClick={nodeId ? (e) => { e.stopPropagation(); onNodeClick?.(nodeId) } : undefined}
           />
         )
       }
@@ -198,8 +242,10 @@ function ComponentNode({ node }) {
           id={id}
           name={name}
           defaultValue={value ?? ''}
-          className={className ?? ''}
+          className={[className ?? '', isActive ? 'rf-node-highlight' : ''].filter(Boolean).join(' ') || undefined}
           style={style}
+          data-node-id={nodeId ?? undefined}
+          onClick={nodeId ? (e) => { e.stopPropagation(); onNodeClick?.(nodeId) } : undefined}
         />
       )
 
@@ -208,15 +254,17 @@ function ComponentNode({ node }) {
         <textarea
           id={id}
           name={name}
-          className={className ?? ''}
+          className={[className ?? '', isActive ? 'rf-node-highlight' : ''].filter(Boolean).join(' ') || undefined}
           style={style}
           defaultValue={value ?? ''}
+          data-node-id={nodeId ?? undefined}
+          onClick={nodeId ? (e) => { e.stopPropagation(); onNodeClick?.(nodeId) } : undefined}
         />
       )
 
     case 'label':
       return (
-        <label htmlFor={htmlFor} {...domProps}>
+        <label htmlFor={htmlFor} {...domProps} {...syncProps}>
           {text ?? content}
         </label>
       )
@@ -224,7 +272,7 @@ function ComponentNode({ node }) {
     default:
       // Unknown component: render as div so the tree doesn't break
       return (
-        <div data-unknown-component={component} {...domProps}>
+        <div data-unknown-component={component} {...domProps} {...syncProps}>
           {content}
         </div>
       )

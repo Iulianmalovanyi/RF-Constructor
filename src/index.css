@@ -102,6 +102,24 @@
 .radio-left    { text-align: left; }
 .radio-right   { text-align: right; }
 
+/* -----------------------------------------------------------------------
+   Bi-directional sync highlight classes
+   ----------------------------------------------------------------------- */
+
+/* Preview panel: highlights the element matching the editor cursor */
+.rf-node-highlight {
+  outline: 2px solid #FFC107;
+  outline-offset: 1px;
+  background-color: rgba(255, 193, 7, 0.08);
+}
+
+/* Monaco editor: line decoration highlight (applied via deltaDecorations API) */
+/* !important required — Monaco overrides background via inline styles */
+.rf-editor-highlight {
+  background-color: rgba(255, 193, 7, 0.15) !important;
+  border-left: 3px solid #FFC107;
+}
+
 /* Textarea defaults inside preview */
 .document-preview-scroll textarea {
   width: 100%;

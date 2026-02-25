@@ -7,8 +7,9 @@ import Editor from '@monaco-editor/react'
  *   value: string          — raw MongoDB-format JSON string
  *   onChange(str: string)  — called on every keystroke (parent debounces)
  *   error: string | null   — parse error message to display
+ *   onMount(editor, monaco) — called when Monaco mounts (used by useSync)
  */
-export default function JsonEditor({ value, onChange, error }) {
+export default function JsonEditor({ value, onChange, error, onMount }) {
   return (
     <div className="flex flex-col h-full">
       {/* Panel header */}
@@ -40,6 +41,7 @@ export default function JsonEditor({ value, onChange, error }) {
           theme="vs"
           value={value}
           onChange={(val) => onChange(val ?? '')}
+          onMount={onMount}
           options={{
             minimap: { enabled: false },
             wordWrap: 'on',
