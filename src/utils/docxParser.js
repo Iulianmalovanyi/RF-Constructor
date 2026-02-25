@@ -226,11 +226,27 @@ function buildEnvelope(formArray, fileName) {
 // DOM walker
 // -------------------------------------------------------------------------
 
+// Matches ${variableName} — DOCX template placeholders that should render as inputs
+const TEMPLATE_VAR_RE = /^\$\{(\w+)\}$/
+
 function walkNode(domNode, ooxmlStyles, tableIdx = null, rowIdx = null, cellIdx = null) {
   // Text node
   if (domNode.nodeType === Node.TEXT_NODE) {
     const text = domNode.textContent.trim()
     if (!text) return null
+
+    // ${varName} → render as text input, not a literal string
+    const varMatch = text.match(TEMPLATE_VAR_RE)
+    if (varMatch) {
+      inputCounter++
+      const fieldId = varMatch[1]
+      return {
+        _id: fieldId,
+        component: 'input',
+        props: { type: 'text', id: fieldId, name: fieldId, className: 'input-block' },
+      }
+    }
+
     return { component: 'span', props: { text } }
   }
 
