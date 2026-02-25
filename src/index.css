@@ -21,6 +21,19 @@
   vertical-align: top;
 }
 
+/* Layout table — borderless, used for header/logo sections */
+.layout-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: none;
+}
+.layout-table td,
+.layout-table th {
+  border: none;
+  padding: 4px 6px;
+  vertical-align: middle;
+}
+
 /* Bexley-style lighter table */
 .bexley-table {
   width: 100%;

@@ -5,22 +5,23 @@
  * the schema defined in /examples/json/.
  *
  * Strategy:
- *   1. mammoth.convertToHtml() → raw HTML string
- *   2. DOMParser → browser DOM tree
- *   3. Walk DOM → component tree (matching the JSON schema)
- *   4. Wrap in MongoDB document envelope
- *
- * Limitations:
- *   - mammoth does not preserve table cell background colours from DOCX
- *   - Some complex DOCX formatting may not map 1:1
- *   - Input field IDs are derived from adjacent label text (best-effort)
+ *   1. Extract raw OOXML styles from the DOCX ZIP (cell backgrounds, text colours)
+ *   2. mammoth.convertToHtml() → raw HTML string (with alignment via transformDocument)
+ *   3. DOMParser → browser DOM tree
+ *   4. Walk DOM → component tree, injecting OOXML styles positionally
+ *   5. Wrap in MongoDB document envelope
  */
 
 import mammoth from 'mammoth'
+import JSZip from 'jszip'
 import { MongoLiteral } from './mongoParser.js'
 
-// Module-level counter, reset before each parse call
+// OOXML WordprocessingML namespace
+const W_NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
+
+// Module-level counters, reset before each parse call
 let inputCounter = 0
+let tableCounter = 0
 
 // -------------------------------------------------------------------------
 // Public API
@@ -34,27 +35,160 @@ let inputCounter = 0
  */
 export async function docxParser(arrayBuffer, fileName) {
   inputCounter = 0
+  tableCounter = 0
 
-  const result = await mammoth.convertToHtml(
-    { arrayBuffer },
-    {
-      styleMap: [
-        'b => b',
-        'i => i',
-        'u => u',
-      ]
-    }
-  )
+  // Run OOXML extraction and mammoth conversion in parallel
+  const [ooxmlStyles, mammothResult] = await Promise.all([
+    extractOoxmlStyles(arrayBuffer),
+    mammoth.convertToHtml(
+      { arrayBuffer },
+      {
+        convertImage: mammoth.images.dataUri,
+        styleMap: [
+          'b => b',
+          'i => i',
+          'u => u',
+          'p[style-name="align-center"]  => p.align-center',
+          'p[style-name="align-right"]   => p.align-right',
+          'p[style-name="align-justify"] => p.align-justify',
+          'p[style-name="align-both"]    => p.align-justify',
+        ],
+        transformDocument: mammoth.transforms.paragraph(para => {
+          if (para.alignment && para.alignment !== 'left' && para.alignment !== null) {
+            return { ...para, styleName: `align-${para.alignment}` }
+          }
+          return para
+        }),
+      }
+    ),
+  ])
 
   const parser = new DOMParser()
-  const doc = parser.parseFromString(result.value, 'text/html')
+  const doc = parser.parseFromString(mammothResult.value, 'text/html')
   const bodyChildren = Array.from(doc.body.childNodes)
 
+  // Reset table counter before DOM walk (must match OOXML walk order)
+  tableCounter = 0
+
   const formArray = bodyChildren
-    .map(walkNode)
+    .map(node => walkNode(node, ooxmlStyles))
     .filter(Boolean)
 
   return buildEnvelope(formArray, fileName)
+}
+
+// -------------------------------------------------------------------------
+// OOXML style extraction
+// -------------------------------------------------------------------------
+
+/**
+ * Extract cell background colours and run text colours directly from the
+ * DOCX OOXML XML, which mammoth does not expose.
+ *
+ * Returns:
+ *   cellStyles[tableIdx][rowIdx][cellIdx] = { backgroundColor?, color?, textAlign? }
+ */
+async function extractOoxmlStyles(arrayBuffer) {
+  const cellStyles = {}
+
+  try {
+    const zip = await JSZip.loadAsync(arrayBuffer)
+    const xmlFile = zip.file('word/document.xml')
+    if (!xmlFile) return { cellStyles }
+
+    const xmlStr = await xmlFile.async('string')
+    const xmlDoc = new DOMParser().parseFromString(xmlStr, 'text/xml')
+
+    const tables = xmlDoc.getElementsByTagNameNS(W_NS, 'tbl')
+
+    Array.from(tables).forEach((tbl, tblIdx) => {
+      cellStyles[tblIdx] = {}
+
+      // Only direct child rows of this table (not nested tables)
+      const rows = directChildren(tbl, 'tr', W_NS)
+
+      rows.forEach((row, rowIdx) => {
+        cellStyles[tblIdx][rowIdx] = {}
+
+        const cells = directChildren(row, 'tc', W_NS)
+
+        cells.forEach((cell, cellIdx) => {
+          const style = {}
+
+          // --- Cell background colour (w:tcPr > w:shd @w:fill) ---
+          try {
+            const tcPr = firstChildNS(cell, 'tcPr', W_NS)
+            if (tcPr) {
+              const shd = firstChildNS(tcPr, 'shd', W_NS)
+              if (shd) {
+                const fill = shd.getAttributeNS(W_NS, 'fill') || shd.getAttribute('w:fill')
+                if (fill && fill !== 'auto' && !/^[Ff]{6}$/.test(fill) && fill.length === 6) {
+                  style.backgroundColor = `#${fill}`
+                }
+              }
+            }
+          } catch (_) { /* degrade gracefully */ }
+
+          // --- Dominant text colour in this cell (first coloured run) ---
+          try {
+            const runs = cell.getElementsByTagNameNS(W_NS, 'r')
+            for (const run of Array.from(runs)) {
+              const rPr = firstChildNS(run, 'rPr', W_NS)
+              if (rPr) {
+                const colorEl = firstChildNS(rPr, 'color', W_NS)
+                if (colorEl) {
+                  const val = colorEl.getAttributeNS(W_NS, 'val') || colorEl.getAttribute('w:val')
+                  if (val && val !== 'auto' && val !== '000000' && val.length === 6) {
+                    style.color = `#${val}`
+                    break // use first coloured run as representative
+                  }
+                }
+              }
+            }
+          } catch (_) { /* degrade gracefully */ }
+
+          // --- Cell paragraph alignment (first paragraph's w:jc) ---
+          try {
+            const paras = cell.getElementsByTagNameNS(W_NS, 'p')
+            if (paras.length > 0) {
+              const pPr = firstChildNS(paras[0], 'pPr', W_NS)
+              if (pPr) {
+                const jc = firstChildNS(pPr, 'jc', W_NS)
+                if (jc) {
+                  const val = jc.getAttributeNS(W_NS, 'val') || jc.getAttribute('w:val')
+                  if (val === 'center') style.textAlign = 'center'
+                  else if (val === 'right') style.textAlign = 'right'
+                  else if (val === 'both') style.textAlign = 'justify'
+                }
+              }
+            }
+          } catch (_) { /* degrade gracefully */ }
+
+          cellStyles[tblIdx][rowIdx][cellIdx] = style
+        })
+      })
+    })
+  } catch (err) {
+    console.warn('OOXML style extraction failed:', err.message)
+  }
+
+  return { cellStyles }
+}
+
+// --- XML helpers ---
+
+/** Get direct children of an element by local name and namespace */
+function directChildren(el, localName, ns) {
+  return Array.from(el.childNodes).filter(
+    n => n.nodeType === 1 && n.localName === localName && n.namespaceURI === ns
+  )
+}
+
+/** Get first direct child element by local name and namespace */
+function firstChildNS(el, localName, ns) {
+  return Array.from(el.childNodes).find(
+    n => n.nodeType === 1 && n.localName === localName && n.namespaceURI === ns
+  ) || null
 }
 
 // -------------------------------------------------------------------------
@@ -92,7 +226,7 @@ function buildEnvelope(formArray, fileName) {
 // DOM walker
 // -------------------------------------------------------------------------
 
-function walkNode(domNode) {
+function walkNode(domNode, ooxmlStyles, tableIdx = null, rowIdx = null, cellIdx = null) {
   // Text node
   if (domNode.nodeType === Node.TEXT_NODE) {
     const text = domNode.textContent.trim()
@@ -100,63 +234,76 @@ function walkNode(domNode) {
     return { component: 'span', props: { text } }
   }
 
-  // Only process element nodes
   if (domNode.nodeType !== Node.ELEMENT_NODE) return null
 
   const tag = domNode.tagName.toLowerCase()
-  const children = Array.from(domNode.childNodes)
-    .map(walkNode)
-    .filter(Boolean)
 
   switch (tag) {
-    case 'p':
-      return buildParagraph(domNode, children)
-    case 'div':
-      return buildDiv(domNode, children)
-    case 'table':
-      return buildTable(domNode, children)
-    case 'thead':
-      return { component: 'thead', children }
-    case 'tbody':
-      return { component: 'tbody', children }
-    case 'tr':
+    case 'table': {
+      const currentTableIdx = tableCounter++
+      const children = Array.from(domNode.childNodes)
+        .map(n => walkNode(n, ooxmlStyles, currentTableIdx, null, null))
+        .filter(Boolean)
+      return buildTable(domNode, children, currentTableIdx, ooxmlStyles)
+    }
+    case 'tr': {
+      // rowIdx is tracked by counting tr siblings at the DOM level
+      const siblings = domNode.parentElement
+        ? Array.from(domNode.parentElement.children).filter(el => el.tagName.toLowerCase() === 'tr')
+        : []
+      const currentRowIdx = siblings.indexOf(domNode)
+      const children = Array.from(domNode.childNodes)
+        .map(n => walkNode(n, ooxmlStyles, tableIdx, currentRowIdx, null))
+        .filter(Boolean)
       return buildTr(domNode, children)
+    }
     case 'td':
-      return buildTd(domNode, children)
-    case 'th':
-      return buildTh(domNode, children)
+    case 'th': {
+      const siblings = domNode.parentElement
+        ? Array.from(domNode.parentElement.children).filter(el =>
+            el.tagName.toLowerCase() === 'td' || el.tagName.toLowerCase() === 'th'
+          )
+        : []
+      const currentCellIdx = siblings.indexOf(domNode)
+      const children = Array.from(domNode.childNodes)
+        .map(n => walkNode(n, ooxmlStyles, tableIdx, rowIdx, currentCellIdx))
+        .filter(Boolean)
+      return buildCell(tag, domNode, children, tableIdx, rowIdx, currentCellIdx, ooxmlStyles)
+    }
+    default: {
+      const children = Array.from(domNode.childNodes)
+        .map(n => walkNode(n, ooxmlStyles, tableIdx, rowIdx, cellIdx))
+        .filter(Boolean)
+      return buildElement(tag, domNode, children)
+    }
+  }
+}
+
+function buildElement(tag, domNode, children) {
+  switch (tag) {
+    case 'p':       return buildParagraph(domNode, children)
+    case 'div':     return buildDiv(domNode, children)
+    case 'thead':   return { component: 'thead', children }
+    case 'tbody':   return { component: 'tbody', children }
     case 'strong':
-    case 'b':
-      return buildBoldSpan(domNode)
+    case 'b':       return buildBoldSpan(domNode)
     case 'em':
-    case 'i':
-      return buildItalicSpan(domNode)
-    case 'u':
-      return buildUnderlineSpan(domNode)
-    case 'span':
-      return buildSpan(domNode, children)
-    case 'a':
-      return buildLink(domNode, children)
-    case 'img':
-      return buildImage(domNode)
+    case 'i':       return buildItalicSpan(domNode)
+    case 'u':       return buildUnderlineSpan(domNode)
+    case 'span':    return buildSpan(domNode, children)
+    case 'a':       return buildLink(domNode)
+    case 'img':     return buildImage(domNode)
     case 'h1':
     case 'h2':
-    case 'h3':
-      return buildHeading('h1', domNode, children)
+    case 'h3':      return buildHeading('h1', domNode, children)
     case 'h4':
     case 'h5':
-    case 'h6':
-      return buildHeading('h4', domNode, children)
-    case 'ul':
-      return { component: 'ul', children }
-    case 'ol':
-      return { component: 'ol', children }
-    case 'li':
-      return { component: 'li', children: children.length ? children : undefined, props: { text: domNode.textContent.trim() } }
-    case 'br':
-      return null
-    default:
-      return children.length ? { component: 'div', children } : null
+    case 'h6':      return buildHeading('h4', domNode, children)
+    case 'ul':      return { component: 'ul', children }
+    case 'ol':      return { component: 'ol', children }
+    case 'li':      return buildLi(domNode, children)
+    case 'br':      return null
+    default:        return children.length ? { component: 'div', children } : null
   }
 }
 
@@ -166,8 +313,14 @@ function walkNode(domNode) {
 
 function buildParagraph(domNode, children) {
   const style = extractInlineStyle(domNode)
-  const text = domNode.textContent.trim()
 
+  // Detect alignment classes injected by mammoth transformDocument
+  const cls = domNode.getAttribute('class') || ''
+  if (cls.includes('align-center')) style.textAlign = 'center'
+  else if (cls.includes('align-right')) style.textAlign = 'right'
+  else if (cls.includes('align-justify')) style.textAlign = 'justify'
+
+  const text = domNode.textContent.trim()
   if (!children.length && !text) return null
 
   const node = { component: 'div' }
@@ -204,15 +357,18 @@ function buildDiv(domNode, children) {
   return node
 }
 
-function buildTable(domNode, children) {
-  inputCounter++
+function buildTable(domNode, children, tableIdx, ooxmlStyles) {
+  // Layout table = contains an image and no input fields
+  // These are header/logo tables that should be borderless
+  const layout = isLayoutTable(domNode)
+
   return {
     _id: 'table',
     component: 'table',
     children,
     props: {
-      className: 'oxford-table',
-      style: { margin: '15px 0' }
+      className: layout ? 'layout-table' : 'oxford-table',
+      style: { margin: '15px 0', width: '100%' },
     }
   }
 }
@@ -224,25 +380,40 @@ function buildTr(domNode, children) {
   return node
 }
 
-function buildTd(domNode, children) {
-  return buildCell('td', domNode, children)
-}
-
-function buildTh(domNode, children) {
-  return buildCell('th', domNode, children)
-}
-
-function buildCell(component, domNode, children) {
+function buildCell(component, domNode, children, tableIdx, rowIdx, cellIdx, ooxmlStyles) {
   const colSpan = domNode.getAttribute('colspan') || domNode.getAttribute('colSpan')
   const rowSpan = domNode.getAttribute('rowspan') || domNode.getAttribute('rowSpan')
   const style = extractInlineStyle(domNode)
 
+  // Inject OOXML-extracted cell styles (background colour, text colour, alignment)
+  try {
+    const ooStyle = ooxmlStyles?.cellStyles?.[tableIdx]?.[rowIdx]?.[cellIdx]
+    if (ooStyle) {
+      if (ooStyle.backgroundColor) style.backgroundColor = ooStyle.backgroundColor
+      if (ooStyle.textAlign)       style.textAlign       = ooStyle.textAlign
+      // Text colour on the cell: only apply if no children override it
+      // We store it and let span-level colour take precedence
+      if (ooStyle.color && !style.color) style.color = ooStyle.color
+    }
+  } catch (_) { /* degrade gracefully */ }
+
   const props = {}
   if (colSpan && colSpan !== '1') props.colSpan = colSpan
   if (rowSpan && rowSpan !== '1') props.rowSpan = rowSpan
-  if (Object.keys(style).length) props.style = style
+  if (Object.keys(style).length)  props.style   = style
 
-  // Input inference: if this cell is empty, check previous sibling for a label
+  // --- Yes/No detection ---
+  // If the cell text is exactly "YesNo" (merged by mammoth from DOCX radio fields),
+  // replace with actual radio button inputs
+  const cellText = domNode.textContent.trim()
+  if (/^yes\s*no$/i.test(cellText) && children.length <= 1) {
+    inputCounter++
+    const name = `yesno_${inputCounter}`
+    const node = { _id: `td${inputCounter}`, component, props, children: buildYesNoRadios(name) }
+    return node
+  }
+
+  // --- Input inference: empty cell adjacent to label cell ---
   let resolvedChildren = children
   if (children.length === 0) {
     const prevSibling = domNode.previousElementSibling
@@ -254,36 +425,42 @@ function buildCell(component, domNode, children) {
       const isMultiLine = multiLineHeuristic(labelText)
 
       const inputNode = isMultiLine
-        ? {
-            _id: fieldId,
-            component: 'textarea',
-            props: {
-              id: fieldId,
-              className: 'input-block'
-            }
-          }
-        : {
-            _id: fieldId,
-            component: 'input',
-            props: {
-              type: 'text',
-              className: 'input-block',
-              id: fieldId
-            }
-          }
+        ? { _id: fieldId, component: 'textarea', props: { id: fieldId, className: 'input-block' } }
+        : { _id: fieldId, component: 'input', props: { type: 'text', className: 'input-block', id: fieldId } }
 
       resolvedChildren = [inputNode]
-      const node = { _id: `td${inputCounter}`, component, children: resolvedChildren, props }
-      return node
+      return { _id: `td${inputCounter}`, component, children: resolvedChildren, props }
     }
   }
 
-  const node = { component, children: resolvedChildren, props }
-  return node
+  return { component, children: resolvedChildren, props }
+}
+
+function buildYesNoRadios(name) {
+  return [
+    {
+      component: 'span',
+      props: { style: { marginRight: '8px', whiteSpace: 'nowrap' } },
+      children: [
+        { component: 'input', props: { type: 'radio', name, value: 'yes', style: { marginRight: '3px' } } },
+        { component: 'span', props: { text: 'Yes' } },
+      ]
+    },
+    {
+      component: 'span',
+      props: { style: { whiteSpace: 'nowrap' } },
+      children: [
+        { component: 'input', props: { type: 'radio', name, value: 'no', style: { marginRight: '3px' } } },
+        { component: 'span', props: { text: 'No' } },
+      ]
+    },
+  ]
 }
 
 function buildBoldSpan(domNode) {
-  const children = Array.from(domNode.childNodes).map(walkNode).filter(Boolean)
+  const children = Array.from(domNode.childNodes)
+    .map(n => walkNode(n, {}))
+    .filter(Boolean)
   const text = domNode.textContent
 
   if (children.length > 1) {
@@ -318,32 +495,22 @@ function buildSpan(domNode, children) {
   return null
 }
 
-function buildLink(domNode, children) {
+function buildLink(domNode) {
   inputCounter++
   const href = domNode.getAttribute('href') || ''
   const text = domNode.textContent.trim()
   const style = extractInlineStyle(domNode)
-  const props = {
-    href,
-    target: '_blank',
-    text,
-    className: 'link-default'
-  }
+  const props = { href, target: '_blank', text, className: 'link-default' }
   if (Object.keys(style).length) props.style = style
 
-  return {
-    _id: `a${inputCounter}`,
-    component: 'a',
-    props
-  }
+  return { _id: `a${inputCounter}`, component: 'a', props }
 }
 
 function buildImage(domNode) {
   const src = domNode.getAttribute('src') || ''
   const style = extractInlineStyle(domNode)
   const props = { src }
-  if (Object.keys(style).length) props.style = style
-  else props.style = { maxWidth: '100%' }
+  props.style = Object.keys(style).length ? style : { maxWidth: '100%' }
 
   return { component: 'img', props }
 }
@@ -356,9 +523,28 @@ function buildHeading(level, domNode, children) {
   return node
 }
 
+function buildLi(domNode, children) {
+  const text = domNode.textContent.trim()
+  return {
+    component: 'li',
+    ...(children.length ? { children } : { props: { text } })
+  }
+}
+
 // -------------------------------------------------------------------------
 // Helpers
 // -------------------------------------------------------------------------
+
+/**
+ * Detect a layout/header table (borderless) vs a data table (oxford-table).
+ * Layout tables contain images and no form inputs.
+ */
+function isLayoutTable(domNode) {
+  return (
+    domNode.querySelector('img') !== null &&
+    domNode.querySelector('input, textarea') === null
+  )
+}
 
 function extractInlineStyle(domNode) {
   const style = {}
@@ -382,11 +568,6 @@ function extractInlineStyle(domNode) {
   return style
 }
 
-/**
- * Convert a label string to camelCase field ID.
- * e.g. "NHS Number" → "nhsNumber"
- *      "DOB" → "dob"
- */
 function toCamelCase(str) {
   return str
     .replace(/[^a-zA-Z0-9\s]/g, '')
@@ -401,9 +582,6 @@ function toCamelCase(str) {
     .join('')
 }
 
-/**
- * Heuristic: should this field be a textarea instead of an input?
- */
 function multiLineHeuristic(labelText) {
   const keywords = [
     'address', 'reason', 'clinical', 'history', 'notes',
