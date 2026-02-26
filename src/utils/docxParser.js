@@ -22,6 +22,7 @@ const W_NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
 // Module-level counters, reset before each parse call
 let inputCounter = 0
 let tableCounter = 0
+let elementCounter = 0
 
 // -------------------------------------------------------------------------
 // Public API
@@ -36,6 +37,7 @@ let tableCounter = 0
 export async function docxParser(arrayBuffer, fileName) {
   inputCounter = 0
   tableCounter = 0
+  elementCounter = 0
 
   // Run OOXML extraction and mammoth conversion in parallel
   const [ooxmlStyles, mammothResult] = await Promise.all([
@@ -73,6 +75,8 @@ export async function docxParser(arrayBuffer, fileName) {
   const formArray = bodyChildren
     .map(node => walkNode(node, ooxmlStyles))
     .filter(Boolean)
+
+  assignMissingIds(formArray)
 
   return buildEnvelope(formArray, fileName)
 }
@@ -219,6 +223,22 @@ function buildEnvelope(formArray, fileName) {
     createdBy: 'system',
     updatedBy: 'system',
     _class: 'ReferralForm',
+  }
+}
+
+// -------------------------------------------------------------------------
+// Post-processing: ensure every node has _id
+// -------------------------------------------------------------------------
+
+function assignMissingIds(nodes) {
+  for (const node of nodes) {
+    if (!node._id) {
+      elementCounter++
+      node._id = `${node.component}_${elementCounter}`
+    }
+    if (node.children) {
+      assignMissingIds(node.children)
+    }
   }
 }
 
