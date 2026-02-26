@@ -2,105 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
-/* -----------------------------------------------------------------------
-   Legacy form CSS classes
-   These are referenced verbatim from JSON "className" values and rendered
-   directly into the DocumentPreview. They are NOT Tailwind utility classes.
-   ----------------------------------------------------------------------- */
-
-/* Oxford-style bordered table (most common in JSON examples) */
-.oxford-table {
-  width: 100%;
-  border-collapse: collapse;
-  border: 1px solid #000;
+html, body, #root {
+  height: 100%;
+  overflow: hidden;
 }
-.oxford-table td,
-.oxford-table th {
-  border: 1px solid #000;
-  padding: 4px 6px;
-  vertical-align: top;
-}
-
-/* Layout table — borderless, used for header/logo sections */
-.layout-table {
-  width: 100%;
-  border-collapse: collapse;
-  border: none;
-}
-.layout-table td,
-.layout-table th {
-  border: none;
-  padding: 4px 6px;
-  vertical-align: middle;
-}
-
-/* Bexley-style lighter table */
-.bexley-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-.bexley-table td,
-.bexley-table th {
-  border: 1px solid #ccc;
-  padding: 4px 6px;
-  vertical-align: top;
-}
-
-/* Full-width block input */
-.input-block {
-  display: block;
-  width: 100%;
-  border: 1px solid #999;
-  padding: 2px 4px;
-  box-sizing: border-box;
-  font-size: 14px;
-}
-
-/* Wider input variant */
-.input-long {
-  display: block;
-  width: 100%;
-  min-width: 200px;
-  border: 1px solid #999;
-  padding: 2px 4px;
-  box-sizing: border-box;
-  font-size: 14px;
-}
-
-/* Hyperlink */
-.link-default {
-  color: #1565C0;
-  text-decoration: underline;
-  cursor: pointer;
-}
-.link-default:hover {
-  color: #0D47A1;
-}
-
-/* Bootstrap-compat flex row */
-.row {
-  display: flex;
-  flex-wrap: wrap;
-}
-
-/* Bootstrap-compat column widths */
-.col-sm-4  { width: 33.33%; box-sizing: border-box; padding: 0 8px; }
-.col-sm-6  { width: 50%;    box-sizing: border-box; padding: 0 8px; }
-.col-sm-8  { width: 66.67%; box-sizing: border-box; padding: 0 8px; }
-.col-sm-12 { width: 100%;   box-sizing: border-box; padding: 0 8px; }
-
-/* Utility classes referenced in some JSON */
-.text-right    { text-align: right; }
-.text-center   { text-align: center; }
-.text-strong   { font-weight: 700; }
-.inline-block  { display: inline-block; }
-.img-responsive { max-width: 100%; height: auto; }
-.pull-right    { float: right; }
-.section       { margin-bottom: 16px; }
-.form-group    { margin-bottom: 12px; }
-.checkbox-right { text-align: right; }
-.radio-left    { text-align: left; }
-.radio-right   { text-align: right; }
 
 /* -----------------------------------------------------------------------
    Bi-directional sync highlight classes

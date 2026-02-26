@@ -2,38 +2,26 @@
  * DocumentPreview.jsx
  *
  * Renders the parsed MongoDB document's `form` array as a live, interactive
- * HTML form. Components are rendered exactly as specified by the JSON —
- * styles, classNames, and structure from the DOCX template are preserved.
- *
- * The brand design system is NOT applied here. The preview must match the
- * original DOCX template as closely as possible.
+ * HTML form using the ReferralFormRenderer — the same rendering approach
+ * used by core-web's production ReferralForm component.
  *
  * Bi-directional sync support:
  *   - Each node with a `_id` gets data-node-id and data-occurrence attributes.
- *   - `data-occurrence` is the zero-indexed count of how many times that
- *     _id appeared in the rendered tree before this instance, matching the
- *     occurrence tracking in useSync.js so each node is uniquely addressable.
  *   - Clicking a node calls onNodeClick(id, occurrence).
- *   - The node matching activeNodeId.id + activeNodeId.occurrence gets the
- *     rf-node-highlight class — exactly one element at a time.
- *
- * Occurrence tracking is done via a pre-pass over the doc tree (buildOccurrenceMap)
- * that assigns a stable { occurrence } to every node with a _id before rendering
- * begins. This avoids mutation-during-render (which is unsafe in React StrictMode)
- * and guarantees the same occurrence order as the JSON line scan in useSync.js.
+ *   - The node matching activeNodeId gets the rf-node-highlight class.
+ *   - mapNodeProps handles base components; syncProps handles field components.
  */
 
+import ReferralFormRenderer from './renderer/ReferralFormRenderer'
+import FieldRenderer from './FieldRenderer'
+
 /**
- * Walk the form tree in depth-first order and assign a stable occurrence index
- * to every node that has a `_id`. Returns a WeakMap keyed by node object.
- *
- * The traversal order matches the order in which `_id` lines appear in the JSON,
- * which in turn matches the order ComponentNode renders them — so the occurrence
- * numbers are consistent between the editor scan and the preview render.
+ * Walk the form tree depth-first and assign a stable occurrence index
+ * to every node with a `_id`. Returns a Map keyed by node object reference.
  */
 function buildOccurrenceMap(nodes) {
-  const map    = new Map()    // node → occurrence number (keyed by object reference)
-  const counts = {}           // id string → how many times seen so far
+  const map    = new Map()
+  const counts = {}
 
   function walk(node) {
     if (!node || !node.component) return
@@ -52,20 +40,57 @@ function buildOccurrenceMap(nodes) {
   return map
 }
 
-/**
- * Main preview component.
- * Props:
- *   doc: object | null                          — parsed MongoDB document
- *   error: string | null                        — parse error (stays on last good doc)
- *   onNodeClick(id: string, occ: number): void  — called when a node is clicked
- *   activeNodeId: { id, occurrence } | null     — currently highlighted node
- */
+function buildSyncProps(node, occurrenceMap, onNodeClick, activeNodeId) {
+  if (node._id == null) return undefined
+
+  const occ = occurrenceMap.get(node)
+  if (occ == null) return undefined
+
+  const isActive =
+    activeNodeId &&
+    activeNodeId.id === node._id &&
+    activeNodeId.occurrence === occ
+
+  return {
+    'data-node-id': node._id,
+    'data-occurrence': occ,
+    onClick: (e) => {
+      e.stopPropagation()
+      onNodeClick(node._id, occ)
+    },
+    className: isActive ? 'rf-node-highlight' : undefined,
+  }
+}
+
 export default function DocumentPreview({ doc, error, onNodeClick, activeNodeId }) {
-  // Build the occurrence map once per doc. This is a pure pre-pass with no
-  // side effects — safe to call during render.
   const occurrenceMap = doc && Array.isArray(doc.form)
     ? buildOccurrenceMap(doc.form)
     : new Map()
+
+  const mapNodeProps = (node, domProps) => {
+    if (node._id == null) return domProps
+
+    const occ = occurrenceMap.get(node)
+    if (occ == null) return domProps
+
+    const isActive =
+      activeNodeId &&
+      activeNodeId.id === node._id &&
+      activeNodeId.occurrence === occ
+
+    return {
+      ...domProps,
+      'data-node-id': node._id,
+      'data-occurrence': occ,
+      onClick: (e) => {
+        e.stopPropagation()
+        onNodeClick(node._id, occ)
+      },
+      className: [domProps.className, isActive && 'rf-node-highlight']
+        .filter(Boolean)
+        .join(' ') || undefined,
+    }
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -93,230 +118,23 @@ export default function DocumentPreview({ doc, error, onNodeClick, activeNodeId 
         {!doc ? (
           <EmptyState />
         ) : (
-          <div
-            className="document-preview-inner p-6"
-            style={{ fontFamily: 'Arial, sans-serif', fontSize: '14px' }}
-          >
-            {Array.isArray(doc.form) && doc.form.map((node, i) => (
-              <ComponentNode
-                key={i}
-                node={node}
-                onNodeClick={onNodeClick}
-                activeNodeId={activeNodeId}
-                occurrenceMap={occurrenceMap}
-              />
-            ))}
+          <div className="document-preview-inner p-6">
+            <ReferralFormRenderer
+              form={doc.form}
+              mapNodeProps={mapNodeProps}
+              renderField={(node, i) => (
+                <FieldRenderer
+                  key={node._key ?? i}
+                  node={node}
+                  syncProps={buildSyncProps(node, occurrenceMap, onNodeClick, activeNodeId)}
+                />
+              )}
+            />
           </div>
         )}
       </div>
     </div>
   )
-}
-
-// -------------------------------------------------------------------------
-// Recursive component renderer
-// -------------------------------------------------------------------------
-
-function ComponentNode({ node, onNodeClick, activeNodeId, occurrenceMap }) {
-  if (!node || !node.component) return null
-
-  const { component, props = {}, children } = node
-
-  // --- Occurrence lookup ---
-  // Read the pre-computed occurrence for this exact node object.
-  // undefined means this node has no _id.
-  const nodeId         = node._id ?? null
-  const nodeOccurrence = nodeId !== null ? (occurrenceMap.get(node) ?? 0) : 0
-
-  // --- Highlight check ---
-  // Both id AND occurrence must match — ensures exactly one element highlights.
-  const isActive = nodeId !== null
-    && activeNodeId !== null
-    && activeNodeId.id === nodeId
-    && activeNodeId.occurrence === nodeOccurrence
-
-  // Destructure known props — everything else is ignored
-  const {
-    text,
-    style,
-    className,
-    id,
-    type,
-    href,
-    target,
-    src,
-    name,
-    value,
-    checked,
-    htmlFor,
-    // Handle both camelCase and lowercase variants (both exist in JSON examples)
-    colSpan,
-    colspan,
-    rowSpan,
-    rowspan,
-  } = props ?? {}
-
-  const domProps = {}
-  if (style)     domProps.style = style
-  if (className) domProps.className = className
-
-  // Merge highlight class with any existing className from JSON
-  const mergedClassName = [domProps.className, isActive ? 'rf-node-highlight' : '']
-    .filter(Boolean).join(' ') || undefined
-
-  // Build sync-related props — only for nodes with a _id
-  const syncProps = {}
-  if (nodeId) {
-    syncProps['data-node-id']    = nodeId
-    syncProps['data-occurrence'] = nodeOccurrence
-    syncProps.onClick = (e) => { e.stopPropagation(); onNodeClick?.(nodeId, nodeOccurrence) }
-  }
-  if (mergedClassName) syncProps.className = mergedClassName
-
-  // Render children recursively — pass occurrenceMap down so every node
-  // can look up its pre-computed occurrence without mutation
-  const hasChildren = Array.isArray(children) && children.length > 0
-  const renderedChildren = hasChildren
-    ? children.map((child, i) => (
-        <ComponentNode
-          key={i}
-          node={child}
-          onNodeClick={onNodeClick}
-          activeNodeId={activeNodeId}
-          occurrenceMap={occurrenceMap}
-        />
-      ))
-    : null
-
-  // Rule: if children exist, render them (text prop is secondary)
-  // If no children, render text as a text node
-  const content = renderedChildren ?? (text != null ? text : null)
-
-  switch (component) {
-    case 'div':
-      return <div {...domProps} {...syncProps}>{content}</div>
-
-    case 'span':
-      return <span {...domProps} {...syncProps}>{content}</span>
-
-    case 'text':
-      // Rare component type — render as inline span
-      return <span {...domProps} {...syncProps}>{content}</span>
-
-    case 'table':
-      return <table {...domProps} {...syncProps}>{content}</table>
-
-    case 'thead':
-      return <thead {...domProps} {...syncProps}>{content}</thead>
-
-    case 'tbody':
-      return <tbody {...domProps} {...syncProps}>{content}</tbody>
-
-    case 'tr':
-      return <tr {...domProps} {...syncProps}>{content}</tr>
-
-    case 'td':
-      return (
-        <td
-          {...domProps}
-          {...syncProps}
-          colSpan={colSpan ?? colspan}
-          rowSpan={rowSpan ?? rowspan}
-        >
-          {content}
-        </td>
-      )
-
-    case 'th':
-      return (
-        <th
-          {...domProps}
-          {...syncProps}
-          colSpan={colSpan ?? colspan}
-          rowSpan={rowSpan ?? rowspan}
-        >
-          {content}
-        </th>
-      )
-
-    case 'h1':
-      return <h1 {...domProps} {...syncProps}>{content}</h1>
-
-    case 'h4':
-      return <h4 {...domProps} {...syncProps}>{content}</h4>
-
-    case 'ul':
-      return <ul {...domProps} {...syncProps}>{content}</ul>
-
-    case 'ol':
-      return <ol {...domProps} {...syncProps}>{content}</ol>
-
-    case 'li':
-      return <li {...domProps} {...syncProps}>{content}</li>
-
-    case 'a':
-      return (
-        <a
-          href={href}
-          target={target}
-          rel="noreferrer"
-          {...domProps}
-          {...syncProps}
-        >
-          {text ?? content}
-        </a>
-      )
-
-    case 'img':
-    case 'image':
-      return <img src={src} alt="" {...domProps} {...syncProps} />
-
-    case 'input': {
-      // Use defaultValue/defaultChecked (uncontrolled) so the user can type
-      // into the form fields without React managing per-field state.
-      // inputSyncProps applies sync attributes directly (input is a void element).
-      const inputSyncProps = {
-        className: [className ?? '', isActive ? 'rf-node-highlight' : ''].filter(Boolean).join(' ') || undefined,
-        style,
-        'data-node-id':    nodeId ?? undefined,
-        'data-occurrence': nodeId != null ? nodeOccurrence : undefined,
-        onClick: nodeId ? (e) => { e.stopPropagation(); onNodeClick?.(nodeId, nodeOccurrence) } : undefined,
-      }
-      if (type === 'checkbox' || type === 'radio') {
-        return <input type={type} id={id} name={name} defaultValue={value} defaultChecked={checked} {...inputSyncProps} />
-      }
-      return <input type={type ?? 'text'} id={id} name={name} defaultValue={value ?? ''} {...inputSyncProps} />
-    }
-
-    case 'textarea':
-      return (
-        <textarea
-          id={id}
-          name={name}
-          defaultValue={value ?? ''}
-          className={[className ?? '', isActive ? 'rf-node-highlight' : ''].filter(Boolean).join(' ') || undefined}
-          style={style}
-          data-node-id={nodeId ?? undefined}
-          data-occurrence={nodeId != null ? nodeOccurrence : undefined}
-          onClick={nodeId ? (e) => { e.stopPropagation(); onNodeClick?.(nodeId, nodeOccurrence) } : undefined}
-        />
-      )
-
-    case 'label':
-      return (
-        <label htmlFor={htmlFor} {...domProps} {...syncProps}>
-          {text ?? content}
-        </label>
-      )
-
-    default:
-      // Unknown component: render as div so the tree doesn't break
-      return (
-        <div data-unknown-component={component} {...domProps} {...syncProps}>
-          {content}
-        </div>
-      )
-  }
 }
 
 // -------------------------------------------------------------------------

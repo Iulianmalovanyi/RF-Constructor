@@ -1,0 +1,1025 @@
+/* =======================================================================
+   Referral Form Preview Styles
+   Converted from core-web ReferralFormStyleProvider.tsx (MUI sx → plain CSS)
+   All selectors scoped under .referral-form-preview
+   ======================================================================= */
+
+/* -- Color tokens (from @cthesigns/design-system) --
+   brand:        #1671be
+   error:        #E42045
+   textPrimary:  #0b0c0c
+   borderInput:  #b1b4b6
+   bgWhite:      #ffffff
+   focusText:    #0b0c0c
+   btnPrimary:   #1671be
+   btnErrorHover: #BA1A38
+   -------------------------------------------------- */
+
+/* Checkmark SVG as data URI (white checkmark for checkbox/radio) */
+
+/* -----------------------------------------------------------------------
+   1. Box model reset
+   ----------------------------------------------------------------------- */
+.referral-form-preview *,
+.referral-form-preview *::before,
+.referral-form-preview *::after {
+  box-sizing: border-box;
+}
+
+.referral-form-preview {
+  font-family: Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.42857143;
+  color: #0b0c0c;
+}
+
+.referral-form-preview input,
+.referral-form-preview button,
+.referral-form-preview select,
+.referral-form-preview textarea {
+  font-family: inherit;
+  line-height: inherit;
+}
+
+.referral-form-preview a {
+  text-decoration: none;
+}
+
+.referral-form-preview a:focus {
+  outline: 5px auto -webkit-focus-ring-color;
+  outline-offset: -2px;
+}
+
+.referral-form-preview img {
+  vertical-align: middle;
+}
+
+.referral-form-preview .img-responsive {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.referral-form-preview .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+.referral-form-preview .sr-only-focusable:active,
+.referral-form-preview .sr-only-focusable:focus {
+  position: static;
+  width: auto;
+  height: auto;
+  margin: 0;
+  overflow: visible;
+  clip: auto;
+}
+
+/* -----------------------------------------------------------------------
+   2. Typography
+   ----------------------------------------------------------------------- */
+.referral-form-preview hr {
+  margin-top: 20px;
+  margin-bottom: 20px;
+  border: 0;
+  border-top: 1px solid #eeeeee;
+}
+
+.referral-form-preview .text-left {
+  text-align: left;
+}
+.referral-form-preview .text-right {
+  text-align: right;
+}
+.referral-form-preview .text-center {
+  text-align: center;
+}
+.referral-form-preview .text-justify {
+  text-align: justify;
+}
+.referral-form-preview .text-nowrap {
+  white-space: nowrap;
+}
+.referral-form-preview .text-lowercase {
+  text-transform: lowercase;
+}
+.referral-form-preview .text-uppercase {
+  text-transform: uppercase;
+}
+.referral-form-preview .text-capitalize {
+  text-transform: capitalize;
+}
+
+.referral-form-preview h1,
+.referral-form-preview .h1,
+.referral-form-preview h2,
+.referral-form-preview .h2,
+.referral-form-preview h3,
+.referral-form-preview .h3 {
+  margin-top: 20px;
+  margin-bottom: 10px;
+}
+
+.referral-form-preview h4,
+.referral-form-preview .h4,
+.referral-form-preview h5,
+.referral-form-preview .h5,
+.referral-form-preview h6,
+.referral-form-preview .h6 {
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
+.referral-form-preview h1,
+.referral-form-preview .h1 {
+  font-size: 36px;
+}
+.referral-form-preview h2,
+.referral-form-preview .h2 {
+  font-size: 30px;
+}
+.referral-form-preview h3,
+.referral-form-preview .h3 {
+  font-size: 24px;
+}
+.referral-form-preview h4,
+.referral-form-preview .h4 {
+  font-size: 18px;
+}
+.referral-form-preview h5,
+.referral-form-preview .h5 {
+  font-size: 14px;
+}
+.referral-form-preview h6,
+.referral-form-preview .h6 {
+  font-size: 12px;
+}
+
+.referral-form-preview p {
+  margin: 0 0 10px;
+}
+
+.referral-form-preview .p {
+  padding: 2px 12px;
+  line-height: 20px;
+}
+
+.referral-form-preview .text-strong {
+  font-weight: 700 !important;
+}
+
+/* -----------------------------------------------------------------------
+   3. Bootstrap 3 grid system (float-based)
+   ----------------------------------------------------------------------- */
+.referral-form-preview .row {
+  margin: 0 -5px;
+}
+
+.referral-form-preview .row::before,
+.referral-form-preview .row::after {
+  content: '';
+  display: table;
+}
+
+.referral-form-preview .row::after {
+  clear: both;
+}
+
+/* All column classes — shared base */
+.referral-form-preview [class*="col-xs-"],
+.referral-form-preview [class*="col-sm-"],
+.referral-form-preview [class*="col-md-"],
+.referral-form-preview [class*="col-lg-"] {
+  position: relative;
+  min-height: 1px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+/* -- xs columns (no breakpoint, always active) -- */
+.referral-form-preview .col-xs-1,
+.referral-form-preview .col-xs-2,
+.referral-form-preview .col-xs-3,
+.referral-form-preview .col-xs-4,
+.referral-form-preview .col-xs-5,
+.referral-form-preview .col-xs-6,
+.referral-form-preview .col-xs-7,
+.referral-form-preview .col-xs-8,
+.referral-form-preview .col-xs-9,
+.referral-form-preview .col-xs-10,
+.referral-form-preview .col-xs-11,
+.referral-form-preview .col-xs-12 {
+  float: left;
+}
+.referral-form-preview .col-xs-12 { width: 100%; }
+.referral-form-preview .col-xs-11 { width: 91.66666667%; }
+.referral-form-preview .col-xs-10 { width: 83.33333333%; }
+.referral-form-preview .col-xs-9  { width: 75%; }
+.referral-form-preview .col-xs-8  { width: 66.66666667%; }
+.referral-form-preview .col-xs-7  { width: 58.33333333%; }
+.referral-form-preview .col-xs-6  { width: 50%; }
+.referral-form-preview .col-xs-5  { width: 41.66666667%; }
+.referral-form-preview .col-xs-4  { width: 33.33333333%; }
+.referral-form-preview .col-xs-3  { width: 25%; }
+.referral-form-preview .col-xs-2  { width: 16.66666667%; }
+.referral-form-preview .col-xs-1  { width: 8.33333333%; }
+
+.referral-form-preview .col-xs-pull-12 { right: 100%; }
+.referral-form-preview .col-xs-pull-11 { right: 91.66666667%; }
+.referral-form-preview .col-xs-pull-10 { right: 83.33333333%; }
+.referral-form-preview .col-xs-pull-9  { right: 75%; }
+.referral-form-preview .col-xs-pull-8  { right: 66.66666667%; }
+.referral-form-preview .col-xs-pull-7  { right: 58.33333333%; }
+.referral-form-preview .col-xs-pull-6  { right: 50%; }
+.referral-form-preview .col-xs-pull-5  { right: 41.66666667%; }
+.referral-form-preview .col-xs-pull-4  { right: 33.33333333%; }
+.referral-form-preview .col-xs-pull-3  { right: 25%; }
+.referral-form-preview .col-xs-pull-2  { right: 16.66666667%; }
+.referral-form-preview .col-xs-pull-1  { right: 8.33333333%; }
+.referral-form-preview .col-xs-pull-0  { right: auto; }
+
+.referral-form-preview .col-xs-push-12 { left: 100%; }
+.referral-form-preview .col-xs-push-11 { left: 91.66666667%; }
+.referral-form-preview .col-xs-push-10 { left: 83.33333333%; }
+.referral-form-preview .col-xs-push-9  { left: 75%; }
+.referral-form-preview .col-xs-push-8  { left: 66.66666667%; }
+.referral-form-preview .col-xs-push-7  { left: 58.33333333%; }
+.referral-form-preview .col-xs-push-6  { left: 50%; }
+.referral-form-preview .col-xs-push-5  { left: 41.66666667%; }
+.referral-form-preview .col-xs-push-4  { left: 33.33333333%; }
+.referral-form-preview .col-xs-push-3  { left: 25%; }
+.referral-form-preview .col-xs-push-2  { left: 16.66666667%; }
+.referral-form-preview .col-xs-push-1  { left: 8.33333333%; }
+.referral-form-preview .col-xs-push-0  { left: auto; }
+
+.referral-form-preview .col-xs-offset-12 { margin-left: 100%; }
+.referral-form-preview .col-xs-offset-11 { margin-left: 91.66666667%; }
+.referral-form-preview .col-xs-offset-10 { margin-left: 83.33333333%; }
+.referral-form-preview .col-xs-offset-9  { margin-left: 75%; }
+.referral-form-preview .col-xs-offset-8  { margin-left: 66.66666667%; }
+.referral-form-preview .col-xs-offset-7  { margin-left: 58.33333333%; }
+.referral-form-preview .col-xs-offset-6  { margin-left: 50%; }
+.referral-form-preview .col-xs-offset-5  { margin-left: 41.66666667%; }
+.referral-form-preview .col-xs-offset-4  { margin-left: 33.33333333%; }
+.referral-form-preview .col-xs-offset-3  { margin-left: 25%; }
+.referral-form-preview .col-xs-offset-2  { margin-left: 16.66666667%; }
+.referral-form-preview .col-xs-offset-1  { margin-left: 8.33333333%; }
+.referral-form-preview .col-xs-offset-0  { margin-left: 0%; }
+
+/* -- sm columns (≥768px) -- */
+@media (min-width: 768px) {
+  .referral-form-preview .col-sm-1,
+  .referral-form-preview .col-sm-2,
+  .referral-form-preview .col-sm-3,
+  .referral-form-preview .col-sm-4,
+  .referral-form-preview .col-sm-5,
+  .referral-form-preview .col-sm-6,
+  .referral-form-preview .col-sm-7,
+  .referral-form-preview .col-sm-8,
+  .referral-form-preview .col-sm-9,
+  .referral-form-preview .col-sm-10,
+  .referral-form-preview .col-sm-11,
+  .referral-form-preview .col-sm-12 {
+    float: left;
+  }
+  .referral-form-preview .col-sm-12 { width: 100%; }
+  .referral-form-preview .col-sm-11 { width: 91.66666667%; }
+  .referral-form-preview .col-sm-10 { width: 83.33333333%; }
+  .referral-form-preview .col-sm-9  { width: 75%; }
+  .referral-form-preview .col-sm-8  { width: 66.66666667%; }
+  .referral-form-preview .col-sm-7  { width: 58.33333333%; }
+  .referral-form-preview .col-sm-6  { width: 50%; }
+  .referral-form-preview .col-sm-5  { width: 41.66666667%; }
+  .referral-form-preview .col-sm-4  { width: 33.33333333%; }
+  .referral-form-preview .col-sm-3  { width: 25%; }
+  .referral-form-preview .col-sm-2  { width: 16.66666667%; }
+  .referral-form-preview .col-sm-1  { width: 8.33333333%; }
+
+  .referral-form-preview .col-sm-pull-12 { right: 100%; }
+  .referral-form-preview .col-sm-pull-11 { right: 91.66666667%; }
+  .referral-form-preview .col-sm-pull-10 { right: 83.33333333%; }
+  .referral-form-preview .col-sm-pull-9  { right: 75%; }
+  .referral-form-preview .col-sm-pull-8  { right: 66.66666667%; }
+  .referral-form-preview .col-sm-pull-7  { right: 58.33333333%; }
+  .referral-form-preview .col-sm-pull-6  { right: 50%; }
+  .referral-form-preview .col-sm-pull-5  { right: 41.66666667%; }
+  .referral-form-preview .col-sm-pull-4  { right: 33.33333333%; }
+  .referral-form-preview .col-sm-pull-3  { right: 25%; }
+  .referral-form-preview .col-sm-pull-2  { right: 16.66666667%; }
+  .referral-form-preview .col-sm-pull-1  { right: 8.33333333%; }
+  .referral-form-preview .col-sm-pull-0  { right: auto; }
+
+  .referral-form-preview .col-sm-push-12 { left: 100%; }
+  .referral-form-preview .col-sm-push-11 { left: 91.66666667%; }
+  .referral-form-preview .col-sm-push-10 { left: 83.33333333%; }
+  .referral-form-preview .col-sm-push-9  { left: 75%; }
+  .referral-form-preview .col-sm-push-8  { left: 66.66666667%; }
+  .referral-form-preview .col-sm-push-7  { left: 58.33333333%; }
+  .referral-form-preview .col-sm-push-6  { left: 50%; }
+  .referral-form-preview .col-sm-push-5  { left: 41.66666667%; }
+  .referral-form-preview .col-sm-push-4  { left: 33.33333333%; }
+  .referral-form-preview .col-sm-push-3  { left: 25%; }
+  .referral-form-preview .col-sm-push-2  { left: 16.66666667%; }
+  .referral-form-preview .col-sm-push-1  { left: 8.33333333%; }
+  .referral-form-preview .col-sm-push-0  { left: auto; }
+
+  .referral-form-preview .col-sm-offset-12 { margin-left: 100%; }
+  .referral-form-preview .col-sm-offset-11 { margin-left: 91.66666667%; }
+  .referral-form-preview .col-sm-offset-10 { margin-left: 83.33333333%; }
+  .referral-form-preview .col-sm-offset-9  { margin-left: 75%; }
+  .referral-form-preview .col-sm-offset-8  { margin-left: 66.66666667%; }
+  .referral-form-preview .col-sm-offset-7  { margin-left: 58.33333333%; }
+  .referral-form-preview .col-sm-offset-6  { margin-left: 50%; }
+  .referral-form-preview .col-sm-offset-5  { margin-left: 41.66666667%; }
+  .referral-form-preview .col-sm-offset-4  { margin-left: 33.33333333%; }
+  .referral-form-preview .col-sm-offset-3  { margin-left: 25%; }
+  .referral-form-preview .col-sm-offset-2  { margin-left: 16.66666667%; }
+  .referral-form-preview .col-sm-offset-1  { margin-left: 8.33333333%; }
+  .referral-form-preview .col-sm-offset-0  { margin-left: 0%; }
+}
+
+/* -- md columns (≥992px) -- */
+@media (min-width: 992px) {
+  .referral-form-preview .col-md-1,
+  .referral-form-preview .col-md-2,
+  .referral-form-preview .col-md-3,
+  .referral-form-preview .col-md-4,
+  .referral-form-preview .col-md-5,
+  .referral-form-preview .col-md-6,
+  .referral-form-preview .col-md-7,
+  .referral-form-preview .col-md-8,
+  .referral-form-preview .col-md-9,
+  .referral-form-preview .col-md-10,
+  .referral-form-preview .col-md-11,
+  .referral-form-preview .col-md-12 {
+    float: left;
+  }
+  .referral-form-preview .col-md-12 { width: 100%; }
+  .referral-form-preview .col-md-11 { width: 91.66666667%; }
+  .referral-form-preview .col-md-10 { width: 83.33333333%; }
+  .referral-form-preview .col-md-9  { width: 75%; }
+  .referral-form-preview .col-md-8  { width: 66.66666667%; }
+  .referral-form-preview .col-md-7  { width: 58.33333333%; }
+  .referral-form-preview .col-md-6  { width: 50%; }
+  .referral-form-preview .col-md-5  { width: 41.66666667%; }
+  .referral-form-preview .col-md-4  { width: 33.33333333%; }
+  .referral-form-preview .col-md-3  { width: 25%; }
+  .referral-form-preview .col-md-2  { width: 16.66666667%; }
+  .referral-form-preview .col-md-1  { width: 8.33333333%; }
+
+  .referral-form-preview .col-md-pull-12 { right: 100%; }
+  .referral-form-preview .col-md-pull-11 { right: 91.66666667%; }
+  .referral-form-preview .col-md-pull-10 { right: 83.33333333%; }
+  .referral-form-preview .col-md-pull-9  { right: 75%; }
+  .referral-form-preview .col-md-pull-8  { right: 66.66666667%; }
+  .referral-form-preview .col-md-pull-7  { right: 58.33333333%; }
+  .referral-form-preview .col-md-pull-6  { right: 50%; }
+  .referral-form-preview .col-md-pull-5  { right: 41.66666667%; }
+  .referral-form-preview .col-md-pull-4  { right: 33.33333333%; }
+  .referral-form-preview .col-md-pull-3  { right: 25%; }
+  .referral-form-preview .col-md-pull-2  { right: 16.66666667%; }
+  .referral-form-preview .col-md-pull-1  { right: 8.33333333%; }
+  .referral-form-preview .col-md-pull-0  { right: auto; }
+
+  .referral-form-preview .col-md-push-12 { left: 100%; }
+  .referral-form-preview .col-md-push-11 { left: 91.66666667%; }
+  .referral-form-preview .col-md-push-10 { left: 83.33333333%; }
+  .referral-form-preview .col-md-push-9  { left: 75%; }
+  .referral-form-preview .col-md-push-8  { left: 66.66666667%; }
+  .referral-form-preview .col-md-push-7  { left: 58.33333333%; }
+  .referral-form-preview .col-md-push-6  { left: 50%; }
+  .referral-form-preview .col-md-push-5  { left: 41.66666667%; }
+  .referral-form-preview .col-md-push-4  { left: 33.33333333%; }
+  .referral-form-preview .col-md-push-3  { left: 25%; }
+  .referral-form-preview .col-md-push-2  { left: 16.66666667%; }
+  .referral-form-preview .col-md-push-1  { left: 8.33333333%; }
+  .referral-form-preview .col-md-push-0  { left: auto; }
+
+  .referral-form-preview .col-md-offset-12 { margin-left: 100%; }
+  .referral-form-preview .col-md-offset-11 { margin-left: 91.66666667%; }
+  .referral-form-preview .col-md-offset-10 { margin-left: 83.33333333%; }
+  .referral-form-preview .col-md-offset-9  { margin-left: 75%; }
+  .referral-form-preview .col-md-offset-8  { margin-left: 66.66666667%; }
+  .referral-form-preview .col-md-offset-7  { margin-left: 58.33333333%; }
+  .referral-form-preview .col-md-offset-6  { margin-left: 50%; }
+  .referral-form-preview .col-md-offset-5  { margin-left: 41.66666667%; }
+  .referral-form-preview .col-md-offset-4  { margin-left: 33.33333333%; }
+  .referral-form-preview .col-md-offset-3  { margin-left: 25%; }
+  .referral-form-preview .col-md-offset-2  { margin-left: 16.66666667%; }
+  .referral-form-preview .col-md-offset-1  { margin-left: 8.33333333%; }
+  .referral-form-preview .col-md-offset-0  { margin-left: 0%; }
+}
+
+/* -- lg columns (≥1200px) -- */
+@media (min-width: 1200px) {
+  .referral-form-preview .col-lg-1,
+  .referral-form-preview .col-lg-2,
+  .referral-form-preview .col-lg-3,
+  .referral-form-preview .col-lg-4,
+  .referral-form-preview .col-lg-5,
+  .referral-form-preview .col-lg-6,
+  .referral-form-preview .col-lg-7,
+  .referral-form-preview .col-lg-8,
+  .referral-form-preview .col-lg-9,
+  .referral-form-preview .col-lg-10,
+  .referral-form-preview .col-lg-11,
+  .referral-form-preview .col-lg-12 {
+    float: left;
+  }
+  .referral-form-preview .col-lg-12 { width: 100%; }
+  .referral-form-preview .col-lg-11 { width: 91.66666667%; }
+  .referral-form-preview .col-lg-10 { width: 83.33333333%; }
+  .referral-form-preview .col-lg-9  { width: 75%; }
+  .referral-form-preview .col-lg-8  { width: 66.66666667%; }
+  .referral-form-preview .col-lg-7  { width: 58.33333333%; }
+  .referral-form-preview .col-lg-6  { width: 50%; }
+  .referral-form-preview .col-lg-5  { width: 41.66666667%; }
+  .referral-form-preview .col-lg-4  { width: 33.33333333%; }
+  .referral-form-preview .col-lg-3  { width: 25%; }
+  .referral-form-preview .col-lg-2  { width: 16.66666667%; }
+  .referral-form-preview .col-lg-1  { width: 8.33333333%; }
+
+  .referral-form-preview .col-lg-pull-12 { right: 100%; }
+  .referral-form-preview .col-lg-pull-11 { right: 91.66666667%; }
+  .referral-form-preview .col-lg-pull-10 { right: 83.33333333%; }
+  .referral-form-preview .col-lg-pull-9  { right: 75%; }
+  .referral-form-preview .col-lg-pull-8  { right: 66.66666667%; }
+  .referral-form-preview .col-lg-pull-7  { right: 58.33333333%; }
+  .referral-form-preview .col-lg-pull-6  { right: 50%; }
+  .referral-form-preview .col-lg-pull-5  { right: 41.66666667%; }
+  .referral-form-preview .col-lg-pull-4  { right: 33.33333333%; }
+  .referral-form-preview .col-lg-pull-3  { right: 25%; }
+  .referral-form-preview .col-lg-pull-2  { right: 16.66666667%; }
+  .referral-form-preview .col-lg-pull-1  { right: 8.33333333%; }
+  .referral-form-preview .col-lg-pull-0  { right: auto; }
+
+  .referral-form-preview .col-lg-push-12 { left: 100%; }
+  .referral-form-preview .col-lg-push-11 { left: 91.66666667%; }
+  .referral-form-preview .col-lg-push-10 { left: 83.33333333%; }
+  .referral-form-preview .col-lg-push-9  { left: 75%; }
+  .referral-form-preview .col-lg-push-8  { left: 66.66666667%; }
+  .referral-form-preview .col-lg-push-7  { left: 58.33333333%; }
+  .referral-form-preview .col-lg-push-6  { left: 50%; }
+  .referral-form-preview .col-lg-push-5  { left: 41.66666667%; }
+  .referral-form-preview .col-lg-push-4  { left: 33.33333333%; }
+  .referral-form-preview .col-lg-push-3  { left: 25%; }
+  .referral-form-preview .col-lg-push-2  { left: 16.66666667%; }
+  .referral-form-preview .col-lg-push-1  { left: 8.33333333%; }
+  .referral-form-preview .col-lg-push-0  { left: auto; }
+
+  .referral-form-preview .col-lg-offset-12 { margin-left: 100%; }
+  .referral-form-preview .col-lg-offset-11 { margin-left: 91.66666667%; }
+  .referral-form-preview .col-lg-offset-10 { margin-left: 83.33333333%; }
+  .referral-form-preview .col-lg-offset-9  { margin-left: 75%; }
+  .referral-form-preview .col-lg-offset-8  { margin-left: 66.66666667%; }
+  .referral-form-preview .col-lg-offset-7  { margin-left: 58.33333333%; }
+  .referral-form-preview .col-lg-offset-6  { margin-left: 50%; }
+  .referral-form-preview .col-lg-offset-5  { margin-left: 41.66666667%; }
+  .referral-form-preview .col-lg-offset-4  { margin-left: 33.33333333%; }
+  .referral-form-preview .col-lg-offset-3  { margin-left: 25%; }
+  .referral-form-preview .col-lg-offset-2  { margin-left: 16.66666667%; }
+  .referral-form-preview .col-lg-offset-1  { margin-left: 8.33333333%; }
+  .referral-form-preview .col-lg-offset-0  { margin-left: 0%; }
+}
+
+/* -----------------------------------------------------------------------
+   4. Tables
+   ----------------------------------------------------------------------- */
+.referral-form-preview table {
+  background-color: transparent;
+}
+
+.referral-form-preview th {
+  text-align: left;
+}
+
+/* -----------------------------------------------------------------------
+   5. Form elements
+   ----------------------------------------------------------------------- */
+.referral-form-preview .date-picker-wrapper {
+  display: inline-block;
+  font-weight: 400;
+}
+
+.referral-form-preview .date-picker-wrapper input {
+  min-width: 150px;
+  margin: 0;
+}
+
+.referral-form-preview .form-group {
+  padding: 10px;
+}
+
+.referral-form-preview .form-group .date-picker-wrapper {
+  top: -6px;
+}
+
+.referral-form-preview .error {
+  border-color: #E42045 !important;
+  position: relative;
+}
+
+/* -- Labels -- */
+.referral-form-preview label {
+  word-break: break-word;
+}
+
+.referral-form-preview label.required::after {
+  display: inline;
+  content: '*';
+  color: #E42045;
+}
+
+.referral-form-preview label[for] {
+  cursor: pointer;
+}
+
+.referral-form-preview label + input {
+  margin-left: 10px;
+}
+
+.referral-form-preview label + input.input-block {
+  margin-left: 0;
+}
+
+.referral-form-preview label + .date-picker-wrapper {
+  margin-left: 10px;
+}
+
+/* -- Text inputs -- */
+.referral-form-preview input {
+  font-size: 14px;
+  height: 30px;
+  border-radius: 7px;
+  padding: 2px 5px;
+  outline: none;
+  color: #0b0c0c;
+  border: 1px solid #b1b4b6;
+  background-color: #ffffff;
+  transition: 0.2s border-color;
+  margin: 4px 0;
+}
+
+.referral-form-preview input:focus {
+  border-color: #0b0c0c;
+}
+
+.referral-form-preview input.error {
+  border-color: #E42045 !important;
+}
+
+.referral-form-preview input.required[type="checkbox"] + label::after {
+  display: inline;
+  content: '*';
+  color: #E42045;
+}
+
+.referral-form-preview input[type="file"] {
+  border: 0;
+  padding: 0;
+}
+
+/* -- Textarea -- */
+.referral-form-preview textarea {
+  width: 100%;
+  min-height: 60px;
+  font-size: 14px;
+  border-radius: 7px;
+  padding: 2px 5px;
+  outline: none;
+  color: #0b0c0c;
+  border: 1px solid #b1b4b6;
+  background-color: #ffffff;
+  transition: 0.2s border-color;
+  margin: 4px 0;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.referral-form-preview textarea:focus {
+  border-color: #0b0c0c;
+}
+
+/* -----------------------------------------------------------------------
+   6. Custom checkbox / radio
+   ----------------------------------------------------------------------- */
+.referral-form-preview input[type="checkbox"],
+.referral-form-preview input[type="radio"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+.referral-form-preview input[type="checkbox"]:checked + label::before,
+.referral-form-preview input[type="radio"]:checked + label::before {
+  border-color: #1671be;
+  background-color: #1671be;
+}
+
+.referral-form-preview input[type="checkbox"].error + label::before,
+.referral-form-preview input[type="radio"].error + label::before {
+  border-color: #E42045 !important;
+}
+
+.referral-form-preview input[type="checkbox"] + label,
+.referral-form-preview input[type="radio"] + label {
+  position: relative;
+  display: inline-block;
+  padding-left: 35px;
+  min-height: 24px;
+  word-break: normal;
+  user-select: none;
+}
+
+.referral-form-preview input[type="checkbox"] + label:empty::before,
+.referral-form-preview input[type="radio"] + label:empty::before {
+  left: 50%;
+  margin-left: -12px;
+}
+
+.referral-form-preview input[type="checkbox"] + label::before,
+.referral-form-preview input[type="radio"] + label::before {
+  position: absolute;
+  bottom: 0;
+  content: '';
+  top: 0;
+  left: 0;
+  right: auto;
+  width: 25px;
+  height: 25px;
+  border: 2px solid #dadada;
+  border-radius: 0;
+  padding-left: 1px;
+  padding-top: 1px;
+  text-align: center;
+  font-size: 24px;
+  line-height: 20px;
+  background-color: #fff;
+  text-decoration: none;
+  margin: auto;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='white' viewBox='0 0 32 32'%3E%3Cpath d='M11.377 27.415c-0.37 0.37-0.895 0.679-1.358 0.679s-0.988-0.324-1.374-0.695c0 0-8.644-8.644-8.644-8.644s2.748-2.748 2.748-2.748c0 0 7.286 7.286 7.286 7.286s19.265-19.404 19.265-19.404c0 0 2.701 2.794 2.701 2.794s-20.623 20.731-20.623 20.731c0 0 0 0 0 0'/%3E%3C/svg%3E");
+  background-position: 1px 1px;
+  background-size: 20px 20px;
+  background-repeat: no-repeat;
+}
+
+.referral-form-preview input[type="checkbox"] + label.checkbox-right,
+.referral-form-preview input[type="radio"] + label.checkbox-right {
+  padding-right: 35px;
+  padding-left: 5px;
+}
+
+.referral-form-preview input[type="checkbox"] + label.checkbox-right::before,
+.referral-form-preview input[type="radio"] + label.checkbox-right::before {
+  left: auto;
+  right: 0;
+}
+
+.referral-form-preview input[type="checkbox"] + label.checkbox-top,
+.referral-form-preview input[type="radio"] + label.checkbox-top {
+  padding-top: 30px;
+  padding-left: 5px;
+}
+
+.referral-form-preview input[type="checkbox"] + label.checkbox-top::before,
+.referral-form-preview input[type="radio"] + label.checkbox-top::before {
+  left: 50%;
+  bottom: auto;
+  margin-left: -12.5px;
+}
+
+.referral-form-preview input[type="checkbox"] + label:hover::before,
+.referral-form-preview input[type="checkbox"] + label:focus::before,
+.referral-form-preview input[type="radio"] + label:hover::before,
+.referral-form-preview input[type="radio"] + label:focus::before {
+  border-color: #0b0c0c;
+}
+
+/* -- Radio-specific label positioning -- */
+.referral-form-preview input[type="radio"] + label {
+  word-break: normal;
+  padding-right: 35px;
+  padding-left: 5px;
+}
+
+.referral-form-preview input[type="radio"] + label::before {
+  left: auto;
+  right: 0;
+}
+
+.referral-form-preview input[type="radio"] + label.radio-left {
+  padding-left: 35px;
+  padding-right: 0;
+}
+
+.referral-form-preview input[type="radio"] + label.radio-left::before {
+  left: 0;
+  right: auto;
+}
+
+.referral-form-preview input[type="radio"] + label.radio-top {
+  padding-top: 30px;
+  padding-left: 5px;
+  padding-right: 0;
+}
+
+.referral-form-preview input[type="radio"] + label.radio-top::before {
+  left: 50%;
+  bottom: auto;
+  margin-left: -12.5px;
+}
+
+/* -----------------------------------------------------------------------
+   7. Link styles
+   ----------------------------------------------------------------------- */
+.referral-form-preview a.link-default {
+  text-decoration: underline;
+  color: rgb(0, 0, 238);
+}
+
+.referral-form-preview a.link-default:hover,
+.referral-form-preview a.link-default:active {
+  color: #2770b7;
+}
+
+/* -----------------------------------------------------------------------
+   8. Sections & form footer
+   ----------------------------------------------------------------------- */
+.referral-form-preview .section {
+  border: 1px solid #212121;
+}
+
+.referral-form-preview .section + .section {
+  margin-top: -1px;
+}
+
+.referral-form-preview .section.borderless {
+  border-left: 0;
+  border-right: 0;
+  border-top: 0;
+}
+
+.referral-form-preview .section-title {
+  font-size: 21px;
+  padding: 12px;
+}
+
+.referral-form-preview .form-footer {
+  margin-top: 30px;
+  font-size: 12px;
+  padding: 12px;
+}
+
+/* -----------------------------------------------------------------------
+   9. Utility classes
+   ----------------------------------------------------------------------- */
+.referral-form-preview .inline-block {
+  display: inline-block;
+}
+
+.referral-form-preview .input-short {
+  width: 100px;
+}
+
+.referral-form-preview .input-middle {
+  width: 150px;
+}
+
+.referral-form-preview .input-long {
+  width: 200px;
+}
+
+.referral-form-preview .input-block {
+  width: 100%;
+}
+
+.referral-form-preview .pull-right {
+  float: right;
+}
+
+/* -----------------------------------------------------------------------
+   10. Oxford table theme
+   ----------------------------------------------------------------------- */
+.referral-form-preview .oxford-table {
+  border-collapse: collapse;
+  border: 1px solid #212121;
+  width: 100%;
+  font-weight: 400;
+}
+
+.referral-form-preview .oxford-table td.error {
+  position: relative;
+  border-color: transparent !important;
+}
+
+.referral-form-preview .oxford-table td.error::after {
+  content: '';
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  bottom: -1px;
+  left: -1px;
+  pointer-events: none;
+  border: 1px solid #E42045 !important;
+  z-index: 10;
+}
+
+.referral-form-preview .oxford-table td.error label {
+  z-index: 1000;
+}
+
+.referral-form-preview .oxford-table ul {
+  list-style: unset;
+  padding-left: 40px;
+}
+
+.referral-form-preview .oxford-table ul.checkbox-list {
+  list-style: none;
+  padding-left: 0;
+}
+
+.referral-form-preview .oxford-table ul.checkbox-list li {
+  margin-bottom: 10px;
+  padding-left: 40px;
+  position: relative;
+}
+
+.referral-form-preview .oxford-table ul.checkbox-list li::before {
+  content: '\2713';
+  position: absolute;
+  top: -3px;
+  font-size: 20px;
+  left: 20px;
+}
+
+.referral-form-preview .oxford-table th,
+.referral-form-preview .oxford-table td,
+.referral-form-preview .oxford-table .table-cell {
+  padding: 5px;
+  border: 1px solid #212121;
+}
+
+.referral-form-preview .oxford-table th {
+  text-align: center;
+  font-size: 24px;
+}
+
+.referral-form-preview .oxford-table a {
+  color: #1671be;
+}
+
+/* -----------------------------------------------------------------------
+   11. Bexley table & box themes
+   ----------------------------------------------------------------------- */
+.referral-form-preview .bexley-form-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1671be;
+}
+
+.referral-form-preview .bexley-table {
+  width: 100%;
+  margin-top: 30px;
+}
+
+.referral-form-preview .bexley-table,
+.referral-form-preview .bexley-table th,
+.referral-form-preview .bexley-table td {
+  border: 1px solid #000;
+}
+
+.referral-form-preview .bexley-table > thead > tr {
+  background-color: #d9d9d9;
+}
+
+.referral-form-preview .bexley-table > thead > tr > th {
+  font-size: 20px;
+}
+
+.referral-form-preview .bexley-table tbody > tr > th:not(.text-strong),
+.referral-form-preview .bexley-table tbody > tr > td {
+  font-weight: 400;
+}
+
+.referral-form-preview .bexley-table tbody > tr .body-header {
+  background-color: #f2f2f2;
+}
+
+.referral-form-preview .bexley-table td,
+.referral-form-preview .bexley-table th {
+  padding: 3px 10px;
+}
+
+.referral-form-preview .bexley-table td .date-picker-wrapper {
+  width: 100%;
+  top: 0;
+}
+
+.referral-form-preview .bexley-table .no-wrap {
+  white-space: nowrap;
+}
+
+.referral-form-preview .bexley-table .text-bold {
+  font-weight: 700;
+}
+
+.referral-form-preview .bexley-table .text-danger {
+  color: #BA1A38;
+}
+
+.referral-form-preview .bexley-table a {
+  color: #1671be;
+  text-decoration: underline;
+}
+
+.referral-form-preview .bexley-box-title + .bexley-table {
+  margin-top: -1px;
+}
+
+.referral-form-preview .bexley-box {
+  padding: 10px;
+  border: 1px solid #000;
+  font-weight: 400;
+}
+
+.referral-form-preview .bexley-box input[name="nhsNumber"] {
+  width: 110px;
+}
+
+.referral-form-preview .bexley-box .bexley-box-title {
+  margin: -10px -10px 10px;
+}
+
+.referral-form-preview .bexley-box-title {
+  padding: 10px;
+  border-bottom: 1px solid #000;
+  font-size: 18px;
+  font-weight: 700;
+  background-color: #d9d9d9;
+  text-transform: uppercase;
+}
+
+.referral-form-preview .bexley-box-subtitle {
+  padding: 10px;
+  border: 1px solid #000;
+  font-weight: 700;
+  background-color: #f2f2f2;
+}
+
+.referral-form-preview .bexley-box + .bexley-box {
+  margin-top: -1px;
+}
+
+.referral-form-preview .bexley-footer {
+  margin: 30px 0;
+  font-weight: 400;
+}
+
+.referral-form-preview .bexley-criteria {
+  margin-top: 15px;
+  margin-bottom: 15px;
+  padding-left: 35px;
+}
+
+/* -----------------------------------------------------------------------
+   12. Layout table (borderless, used for header/logo sections)
+   ----------------------------------------------------------------------- */
+.referral-form-preview .layout-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: none;
+}
+
+.referral-form-preview .layout-table td,
+.referral-form-preview .layout-table th {
+  border: none;
+  padding: 4px 6px;
+  vertical-align: middle;
+}
+
+/* -----------------------------------------------------------------------
+   13. Image attachment placeholder
+   ----------------------------------------------------------------------- */
+.referral-form-preview .image-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 80px;
+  border: 2px dashed #b1b4b6;
+  border-radius: 7px;
+  color: #6b7280;
+  font-size: 13px;
+  background-color: #f9fafb;
+  margin: 4px 0;
+}
