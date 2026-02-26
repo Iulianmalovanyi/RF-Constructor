@@ -51,7 +51,7 @@ export function useSync(jsonString) {
 
     editor.onDidChangeCursorPosition((e) => {
       const result = findIdAboveLine(jsonStringRef.current, e.position.lineNumber)
-      if (!result) return
+      if (!result) { setActiveNodeId(null); return }
 
       setActiveNodeId(result)   // { id, occurrence }
 

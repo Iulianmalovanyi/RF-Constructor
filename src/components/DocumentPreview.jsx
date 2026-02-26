@@ -271,48 +271,31 @@ function ComponentNode({ node, onNodeClick, activeNodeId, occurrenceMap }) {
     case 'image':
       return <img src={src} alt="" {...domProps} {...syncProps} />
 
-    case 'input':
+    case 'input': {
       // Use defaultValue/defaultChecked (uncontrolled) so the user can type
       // into the form fields without React managing per-field state.
-      // Sync props are applied inline (input is a void element, no domProps wrapper).
-      if (type === 'checkbox' || type === 'radio') {
-        return (
-          <input
-            type={type}
-            id={id}
-            name={name}
-            defaultValue={value}
-            defaultChecked={checked}
-            className={[className ?? '', isActive ? 'rf-node-highlight' : ''].filter(Boolean).join(' ') || undefined}
-            style={style}
-            data-node-id={nodeId ?? undefined}
-            data-occurrence={nodeId != null ? nodeOccurrence : undefined}
-            onClick={nodeId ? (e) => { e.stopPropagation(); onNodeClick?.(nodeId, nodeOccurrence) } : undefined}
-          />
-        )
+      // inputSyncProps applies sync attributes directly (input is a void element).
+      const inputSyncProps = {
+        className: [className ?? '', isActive ? 'rf-node-highlight' : ''].filter(Boolean).join(' ') || undefined,
+        style,
+        'data-node-id':    nodeId ?? undefined,
+        'data-occurrence': nodeId != null ? nodeOccurrence : undefined,
+        onClick: nodeId ? (e) => { e.stopPropagation(); onNodeClick?.(nodeId, nodeOccurrence) } : undefined,
       }
-      return (
-        <input
-          type={type ?? 'text'}
-          id={id}
-          name={name}
-          defaultValue={value ?? ''}
-          className={[className ?? '', isActive ? 'rf-node-highlight' : ''].filter(Boolean).join(' ') || undefined}
-          style={style}
-          data-node-id={nodeId ?? undefined}
-          data-occurrence={nodeId != null ? nodeOccurrence : undefined}
-          onClick={nodeId ? (e) => { e.stopPropagation(); onNodeClick?.(nodeId, nodeOccurrence) } : undefined}
-        />
-      )
+      if (type === 'checkbox' || type === 'radio') {
+        return <input type={type} id={id} name={name} defaultValue={value} defaultChecked={checked} {...inputSyncProps} />
+      }
+      return <input type={type ?? 'text'} id={id} name={name} defaultValue={value ?? ''} {...inputSyncProps} />
+    }
 
     case 'textarea':
       return (
         <textarea
           id={id}
           name={name}
+          defaultValue={value ?? ''}
           className={[className ?? '', isActive ? 'rf-node-highlight' : ''].filter(Boolean).join(' ') || undefined}
           style={style}
-          defaultValue={value ?? ''}
           data-node-id={nodeId ?? undefined}
           data-occurrence={nodeId != null ? nodeOccurrence : undefined}
           onClick={nodeId ? (e) => { e.stopPropagation(); onNodeClick?.(nodeId, nodeOccurrence) } : undefined}

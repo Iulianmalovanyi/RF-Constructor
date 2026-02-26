@@ -105,6 +105,7 @@ export default function App() {
             onChange={handleEditorChange}
             error={parseError}
             onMount={onEditorMount}
+            fileName={fileName}
           />
           <DocumentPreview
             doc={parsedDoc}
