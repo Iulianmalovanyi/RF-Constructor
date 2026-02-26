@@ -247,7 +247,7 @@ function assignMissingIds(nodes) {
 // -------------------------------------------------------------------------
 
 // Matches ${variableName} — DOCX template placeholders that should render as inputs
-const TEMPLATE_VAR_RE = /^\$\{(\w+)\}$/
+const TEMPLATE_VAR_RE = /\$\{(\w+)\}/
 
 function walkNode(domNode, ooxmlStyles, tableIdx = null, rowIdx = null, cellIdx = null) {
   // Text node
@@ -255,16 +255,33 @@ function walkNode(domNode, ooxmlStyles, tableIdx = null, rowIdx = null, cellIdx 
     const text = domNode.textContent.trim()
     if (!text) return null
 
-    // ${varName} → render as text input, not a literal string
-    const varMatch = text.match(TEMPLATE_VAR_RE)
-    if (varMatch) {
-      inputCounter++
-      const fieldId = varMatch[1]
-      return {
-        _id: fieldId,
-        component: 'input',
-        props: { type: 'text', id: fieldId, name: fieldId, className: 'input-block' },
+    // If text contains ${varName} placeholders, split into spans + inputs
+    if (TEMPLATE_VAR_RE.test(text)) {
+      const parts = text.split(/(\$\{\w+\})/).filter(Boolean)
+      // Exact match (single var, no surrounding text) → single input
+      if (parts.length === 1) {
+        inputCounter++
+        const fieldId = parts[0].match(TEMPLATE_VAR_RE)[1]
+        return {
+          _id: fieldId,
+          component: 'input',
+          props: { type: 'text', id: fieldId, name: fieldId, className: 'input-block' },
+        }
       }
+      // Mixed text + vars → array of span/input nodes
+      return parts.map(part => {
+        const m = part.match(TEMPLATE_VAR_RE)
+        if (m) {
+          inputCounter++
+          const fieldId = m[1]
+          return {
+            _id: fieldId,
+            component: 'input',
+            props: { type: 'text', id: fieldId, name: fieldId, className: 'input-block' },
+          }
+        }
+        return { component: 'span', props: { text: part } }
+      })
     }
 
     return { component: 'span', props: { text } }
@@ -279,6 +296,7 @@ function walkNode(domNode, ooxmlStyles, tableIdx = null, rowIdx = null, cellIdx 
       const currentTableIdx = tableCounter++
       const children = Array.from(domNode.childNodes)
         .map(n => walkNode(n, ooxmlStyles, currentTableIdx, null, null))
+        .flat()
         .filter(Boolean)
       return buildTable(domNode, children, currentTableIdx, ooxmlStyles)
     }
@@ -290,6 +308,7 @@ function walkNode(domNode, ooxmlStyles, tableIdx = null, rowIdx = null, cellIdx 
       const currentRowIdx = siblings.indexOf(domNode)
       const children = Array.from(domNode.childNodes)
         .map(n => walkNode(n, ooxmlStyles, tableIdx, currentRowIdx, null))
+        .flat()
         .filter(Boolean)
       return buildTr(domNode, children)
     }
@@ -303,12 +322,14 @@ function walkNode(domNode, ooxmlStyles, tableIdx = null, rowIdx = null, cellIdx 
       const currentCellIdx = siblings.indexOf(domNode)
       const children = Array.from(domNode.childNodes)
         .map(n => walkNode(n, ooxmlStyles, tableIdx, rowIdx, currentCellIdx))
+        .flat()
         .filter(Boolean)
       return buildCell(tag, domNode, children, tableIdx, rowIdx, currentCellIdx, ooxmlStyles)
     }
     default: {
       const children = Array.from(domNode.childNodes)
         .map(n => walkNode(n, ooxmlStyles, tableIdx, rowIdx, cellIdx))
+        .flat()
         .filter(Boolean)
       return buildElement(tag, domNode, children)
     }
